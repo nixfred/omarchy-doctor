@@ -22,7 +22,7 @@ import threading
 import time
 import uuid
 
-VERSION = "1.3.0"
+VERSION = "1.3.1"
 SCHEMA = 1
 STATES = {"ok", "warn", "bad", "unknown", "skipped"}
 RETENTION = 7 * 86400
