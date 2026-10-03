@@ -265,6 +265,9 @@ class HistoryTests(unittest.TestCase):
         row=doctor.Probes(lambda *a,**kw:probe(lines)).journal()
         self.assertEqual((row['state'],row['metrics']['journal_entries'],row['metrics']['journal_ignored']),('warn',1,1))
         self.assertIn('[ignored:',row['evidence'])
+        for m in ('profiles/audio/avdtp.c:avdtp_connect_cb() connect to 74:3F:8E:A5:5C:A1: Host is down (112)','ucsi_acpi USBC000:00: GET_CURRENT_CAM command failed'):
+            self.assertEqual(doctor.Probes(lambda *a,**kw:probe(json.dumps({"MESSAGE":m}))).journal()['state'],'ok',m)
+        self.assertEqual(doctor.Probes(lambda *a,**kw:probe(json.dumps({"MESSAGE":"connect to 74:3F:8E:A5:5C:A1: Permission denied"}))).journal()['state'],'warn')
         only=json.dumps({"SYSLOG_IDENTIFIER":"kernel","MESSAGE":"virt/tdx: TDX not supported by the host platform"})
         self.assertEqual(doctor.Probes(lambda *a,**kw:probe(only)).journal()['state'],'ok')
 

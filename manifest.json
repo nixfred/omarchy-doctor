@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "nixfred.doctor",
   "name": "Omarchy Doctor",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "author": "Fred Nix",
   "description": "Animated system diagnostics with live hardware graphics, evidence, bounded scans and seven-day local history.",
   "kinds": [

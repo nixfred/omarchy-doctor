@@ -22,7 +22,7 @@ import threading
 import time
 import uuid
 
-VERSION = "1.4.0"
+VERSION = "1.4.1"
 SCHEMA = 1
 STATES = {"ok", "warn", "bad", "unknown", "skipped"}
 RETENTION = 7 * 86400
@@ -115,6 +115,8 @@ def sensor_inputs(tree):
 BENIGN_JOURNAL = (
     (r"virt/tdx: TDX not supported by the host platform", "CPU has no Intel TDX; the kernel reports this once per boot"),
     (r"nl80211: kernel reports: multicast RX registrations are not supported", "Wi-Fi driver capability notice on each connection"),
+    (r"avdtp_connect_cb\(\) connect to [0-9A-Fa-f:]{17}: Host is down \(112\)", "a paired Bluetooth audio device was off or out of range when bluez tried to reconnect"),
+    (r"ucsi_acpi USBC\d+:\d+: GET_CURRENT_CAM command failed", "USB-C controller firmware does not support this query"),
 )
 
 # Package sensors on CPUs that report no limits of their own. Ryzen mobile parts boost into the
