@@ -126,6 +126,7 @@ omarchy-shell nixfred.doctor show history
 omarchy-shell nixfred.doctor fix services       # hand a finding to the default agent
 omarchy-shell nixfred.doctor recheck services   # re-probe one check, settle its fix
 python3 doctor.py fix services --no-launch      # record a fix and print the agent briefing only
+python3 doctor.py fix services --no-launch --agent larry   # record a fix worked by another agent
 python3 doctor.py recheck services
 python3 doctor.py fixes
 ```

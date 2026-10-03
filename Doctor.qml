@@ -13,7 +13,7 @@ Panel {
     manageIpc: false
     implicitWidth: button.implicitWidth
     implicitHeight: button.implicitHeight
-    property string version: "1.3.1"
+    property string version: "1.4.0"
     property string page: "overview"
     property var results: []
     property var metrics: ({})

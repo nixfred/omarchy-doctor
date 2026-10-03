@@ -260,4 +260,20 @@ class HistoryTests(unittest.TestCase):
         self.assertIn('Fix the cause, never the measurement',text)
         self.assertIn('diagnose-crash',text)
 
+    def test_known_hardware_notices_are_ignored_but_visible(self):
+        lines='\n'.join(json.dumps(x) for x in [{"SYSLOG_IDENTIFIER":"kernel","MESSAGE":"virt/tdx: TDX not supported by the host platform"},{"SYSLOG_IDENTIFIER":"app","MESSAGE":"real failure"}])
+        row=doctor.Probes(lambda *a,**kw:probe(lines)).journal()
+        self.assertEqual((row['state'],row['metrics']['journal_entries'],row['metrics']['journal_ignored']),('warn',1,1))
+        self.assertIn('[ignored:',row['evidence'])
+        only=json.dumps({"SYSLOG_IDENTIFIER":"kernel","MESSAGE":"virt/tdx: TDX not supported by the host platform"})
+        self.assertEqual(doctor.Probes(lambda *a,**kw:probe(only)).journal()['state'],'ok')
+
+    def test_temperature_uses_hardware_limits(self):
+        tree={"k10temp-pci-00c3":{"Tctl":{"temp1_input":88}},"nvme-pci-0500":{"Composite":{"temp1_input":82,"temp1_max":84.85,"temp1_crit":84.85}}}
+        row=doctor.Probes(lambda *a,**kw:probe(json.dumps(tree))).temperature()
+        self.assertEqual(row['state'],'warn')
+        self.assertIn('nvme',row['summary'])
+        tree["nvme-pci-0500"]["Composite"]["temp1_input"]=50
+        self.assertEqual(doctor.Probes(lambda *a,**kw:probe(json.dumps(tree))).temperature()['state'],'ok')
+
 if __name__=='__main__':unittest.main()

@@ -22,7 +22,7 @@ import threading
 import time
 import uuid
 
-VERSION = "1.3.1"
+VERSION = "1.4.0"
 SCHEMA = 1
 STATES = {"ok", "warn", "bad", "unknown", "skipped"}
 RETENTION = 7 * 86400
@@ -109,6 +109,51 @@ def sensor_inputs(tree):
     walk(tree, [])
     return readings
 
+# Error-priority journal lines that are fixed facts about the hardware, printed on every boot or
+# connection, which no repair can remove. Kept deliberately narrow and exact; matches stay visible
+# in the evidence as ignored, with the reason.
+BENIGN_JOURNAL = (
+    (r"virt/tdx: TDX not supported by the host platform", "CPU has no Intel TDX; the kernel reports this once per boot"),
+    (r"nl80211: kernel reports: multicast RX registrations are not supported", "Wi-Fi driver capability notice on each connection"),
+)
+
+# Package sensors on CPUs that report no limits of their own. Ryzen mobile parts boost into the
+# 90s by design (Tjmax 95-100°C), so a flat 85°C rule flags normal load as a problem.
+CPU_LIMITS = (("k10temp", 95, 100), ("zenpower", 95, 100), ("coretemp", 95, 100))
+DEFAULT_LIMITS = (85, 95)
+
+def sensor_limits(tree):
+    """(label, current, warn, critical, source) per sensor, using the hardware's own limits when it has them."""
+    out = []
+    for chip, features in (tree.items() if isinstance(tree, dict) else []):
+        if not isinstance(features, dict):
+            continue
+        for feature, values in features.items():
+            if not isinstance(values, dict):
+                continue
+            for key, raw in values.items():
+                m = re.fullmatch(r"(temp\d+)_input", key)
+                n = number(raw)
+                if not m or n is None or not -30 <= n <= 150:
+                    continue
+                def limit(name):
+                    v = number(values.get(f"{m.group(1)}_{name}"))
+                    return v if v is not None and 40 <= v <= 130 else None
+                crit = limit("crit")
+                if crit is not None:
+                    warn, source = crit - 5, f"sensor critical {crit:.0f}°C"
+                else:
+                    cpu = next((c for c in CPU_LIMITS if chip.startswith(c[0])), None)
+                    high = limit("max")
+                    if cpu:
+                        warn, crit, source = cpu[1], cpu[2], f"{cpu[0]} package limit {cpu[2]}°C"
+                    elif high is not None:
+                        warn, crit, source = high, high + 10, f"sensor high {high:.0f}°C"
+                    else:
+                        (warn, crit), source = DEFAULT_LIMITS, "general limit"
+                out.append((f"{chip} / {feature} / {key}", n, warn, crit, source))
+    return out
+
 def read_values(path):
     values = {}
     for line in Path(path).read_text().splitlines():
@@ -168,12 +213,18 @@ class Probes:
                 entries.append(json.loads(line))
             except ValueError:
                 return unavailable("journal", "system", "Boot journal", {**p, "output": "Could not parse the journal response."})
+        ignored = []
+        for e in list(entries):
+            reason = next((why for pattern, why in BENIGN_JOURNAL if re.search(pattern, str(e.get("MESSAGE", "")))), None)
+            if reason:
+                ignored.append(f"{e.get('SYSLOG_IDENTIFIER', e.get('_COMM', 'journal'))}: {e.get('MESSAGE', '')}  [ignored: {reason}]")
+                entries.remove(e)
         count = f"{len(entries)}+" if len(entries) >= 200 else str(len(entries))
         return result("journal", "system", "Boot journal", "warn" if entries else "ok",
             (f"{count} new high-priority record(s){after}; inspect context." if after else f"{count} high-priority record(s) this boot; inspect context.") if entries
             else (f"No new high-priority entries{after}." if after else "No high-priority entries in this boot."),
-            "\n\n".join(str(e.get("SYSLOG_IDENTIFIER", e.get("_COMM", "journal"))) + ": " + str(e.get("MESSAGE", "")) for e in entries),
-            "journalctl -b " + " ".join(since + ["-p", "3", "-n", "200", "--no-pager"]), {"journal_entries": len(entries)})
+            "\n\n".join([str(e.get("SYSLOG_IDENTIFIER", e.get("_COMM", "journal"))) + ": " + str(e.get("MESSAGE", "")) for e in entries] + ignored),
+            "journalctl -b " + " ".join(since + ["-p", "3", "-n", "200", "--no-pager"]), {"journal_entries": len(entries), "journal_ignored": len(ignored)})
 
     def memory(self):
         try:
@@ -225,7 +276,7 @@ class Probes:
         values = []
         if p["ok"]:
             try:
-                values = sensor_inputs(json.loads(p.get("stdout", p["output"])))
+                values = sensor_limits(json.loads(p.get("stdout", p["output"])))
             except (ValueError, TypeError):
                 pass
         if not values:
@@ -233,15 +284,20 @@ class Probes:
                 try:
                     n = number(path.read_text().strip())
                     if n is not None and -30000 <= n <= 150000:
-                        values.append(((path.parent / "type").read_text().strip(), n / 1000))
+                        values.append(((path.parent / "type").read_text().strip(), n / 1000, *DEFAULT_LIMITS, "general limit"))
                 except OSError:
                     pass
         if not values:
             return unavailable("temperature", "cpu", "Thermal sensors", p)
+        rank = lambda v: 2 if v[1] >= v[3] else 1 if v[1] >= v[2] else 0
+        worst = max(values, key=lambda v: (rank(v), v[1] - v[2]))
         hottest = max(values, key=lambda v: v[1])
-        return result("temperature", "cpu", "Thermal sensors", "bad" if hottest[1] >= 95 else "warn" if hottest[1] >= 85 else "ok",
-            f"Highest current sensor: {hottest[1]:.1f}°C.", "\n".join(f"{label}: {value:.1f}°C" for label, value in values)
-            + "\nGeneral warning ≥85°C, critical ≥95°C; inspect hardware-specific limits.", "sensors -j", {"temperature_c": hottest[1]})
+        state = ("ok", "warn", "bad")[rank(worst)]
+        summary = (f"{worst[0].split(' / ')[0]} at {worst[1]:.1f}°C, past its warning point of {worst[2]:.0f}°C ({worst[4]})." if state != "ok"
+            else f"Highest current sensor: {hottest[1]:.1f}°C, within its limits.")
+        return result("temperature", "cpu", "Thermal sensors", state, summary,
+            "\n".join(f"{label}: {value:.1f}°C (warn {warn:.0f}, critical {crit:.0f}; {source})" for label, value, warn, crit, source in values)
+            + "\nEach sensor is judged against its own hardware limits when it reports them.", "sensors -j", {"temperature_c": hottest[1]})
 
     def storage(self):
         try:
@@ -666,6 +722,7 @@ def main():
     parser.add_argument("check", nargs="?", default="")
     parser.add_argument("--deep", action="store_true")
     parser.add_argument("--no-launch", action="store_true", help="record the fix and print the prompt without opening an agent")
+    parser.add_argument("--agent", default="", help="name recorded for this fix; defaults to the Omarchy default agent")
     parser.add_argument("--seconds", type=int, default=86400)
     parser.add_argument("--database", default=str(Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state"))) / "omarchy-doctor/history.sqlite3"))
     parser.add_argument("--interval", type=float, default=3)
@@ -722,7 +779,7 @@ def main():
                 if row["state"] in ("ok", "skipped"):
                     emit("error", message=f"{row['title']} is {row['state']}; there is nothing to fix.")
                     return 3
-                agent = default_agent()
+                agent = args.agent or default_agent()
                 fix_id = history.open_fix(row, agent)
                 prompt = fix_prompt(row, socket.gethostname(), fix_id)
                 launcher = shlex.split(os.environ.get("DOCTOR_AGENT_COMMAND", "omarchy-agent-prompt"))
