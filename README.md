@@ -28,13 +28,62 @@ The Doctor collector never repairs, deletes, installs packages, restarts service
 
 ## Install
 
-Requires Omarchy Quattro/Quickshell, Python 3 and the Omarchy plugin CLI. From this checkout:
+Requires Omarchy Quattro/Quickshell, Git, Python 3 and the Omarchy plugin CLI.
+
+### Recommended: install with Omarchy
+
+Open a terminal and run:
 
 ```bash
+omarchy plugin add https://github.com/nixfred/omarchy-doctor.git --enable
+```
+
+Omarchy downloads the repository into `~/.config/omarchy/plugins/nixfred.doctor`, validates it, and enables the plugin. Follow the prompts to confirm installation and choose its bar section. Run this as your normal desktop user, without `sudo`; you do not need a separate source checkout or to run `install.py`.
+
+Click the medical-cross icon on the bar to open Doctor, or run:
+
+```bash
+omarchy-shell nixfred.doctor open
+```
+
+Update this installation with:
+
+```bash
+omarchy plugin update nixfred.doctor
+```
+
+### Alternative: install from a source checkout
+
+Use the custom installer if you want its installation backups and automatic placement beside Pulse.
+
+Open a terminal in the directory where you want to keep the source code, then download and install Doctor:
+
+```bash
+git clone https://github.com/nixfred/omarchy-doctor.git
+cd omarchy-doctor
 python3 install.py --enable
 ```
 
-This validates and copies the runtime into `~/.config/omarchy/plugins/nixfred.doctor`, backs up any prior installation and shell configuration, and places Doctor beside Pulse through Omarchy's public bar API. Existing widgets keep their order and settings. No shell restart is required. Omit `--enable` to install without placing it on the bar.
+Run these commands as your normal desktop user, without `sudo`. If you already cloned the repository, open a terminal in that checkout and run only `python3 install.py --enable`.
+
+This validates and copies the runtime into `~/.config/omarchy/plugins/nixfred.doctor`, backs up any prior installation and shell configuration, and places Doctor beside Pulse through Omarchy's public bar API. If Pulse is not on your bar, Doctor is added to the start of the right section. Existing widgets keep their order and settings. No shell restart is required. Omit `--enable` to install without placing it on the bar.
+
+After installation with `--enable`, click the medical-cross icon on the bar to open Doctor, or run:
+
+```bash
+omarchy-shell nixfred.doctor open
+```
+
+#### Update a source-checkout installation
+
+From your existing source checkout, download the latest changes and run the installer again:
+
+```bash
+git pull --ff-only
+python3 install.py --enable
+```
+
+### Optional hardware tools
 
 `lm_sensors` and `smartmontools` improve hardware coverage. Other checks use system-provided tools such as systemctl, journalctl, ip, getent, nmcli and wpctl. NVIDIA measurements use nvidia-smi; DRM activity is a fallback on other GPUs. Missing tools, permissions and unsupported sensors produce unavailable or skipped results, never a fabricated healthy verdict. SMART runs without privilege prompts. Reading an NVMe health log needs root, so when the plain read is denied Doctor retries once with `sudo -n`, which uses an existing passwordless rule or fails immediately; the drive then stays unknown and the evidence shows why. To allow only that read, add a sudoers drop-in such as `yourname ALL=(root) NOPASSWD: /usr/bin/smartctl ^-j -H /dev/[a-z0-9]+$` with `visudo -f /etc/sudoers.d/doctor-smart`.
 
