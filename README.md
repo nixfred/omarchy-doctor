@@ -99,9 +99,11 @@ python3 install.py --enable
 
 ## Health semantics
 
-Healthy means completed checks reported no concern. Unavailable evidence, intentional skips, incomplete scans and results older than ten minutes are distinguished. A quick scan intentionally skips package integrity. A usage spike alone is not treated as a failure. Sensor critical limits are never mistaken for current temperatures, and virtual compressed-memory devices are not presented as physical SMART drives.
+Healthy means completed checks reported no concern. Unavailable evidence, intentional skips, incomplete scans and results older than ten minutes are distinguished. A quick scan intentionally skips package integrity. A usage spike alone is not treated as a failure. Each temperature sensor is judged against its own limits: its reported critical value (warning five degrees below), else the CPU package limits for k10temp, zenpower and coretemp (95/100 °C), else the sensor's own high value, and only then a general 85/95 °C default. The summary names the sensor and the limit it crossed, and the evidence lists every sensor's limits. Sensor critical limits are never mistaken for current temperatures, and virtual compressed-memory devices are not presented as physical SMART drives.
 
 Three checks count history rather than current state: application crashes (core dumps today), the boot journal (high-priority records this boot) and Omarchy shell warnings. A crash cannot be un-crashed, so these could never clear without deleting evidence. Once one of them is handed to an agent, everything up to the hand-off counts as reviewed, and the check reports only events that happen afterwards. A fix that is followed by the same kind of problem within 24 hours is marked **regressed** (shown as "came back"). The agent briefing forbids passing a check by hiding evidence: no deleting core dumps, vacuuming journals, masking units or editing Doctor.
+
+The boot journal also ignores a short, exact list of known-harmless hardware notices that print on every boot or connection and that no repair can remove: the kernel's "TDX not supported by the host platform", the Wi-Fi supplicant's "multicast RX registrations are not supported", Bluetooth `avdtp_connect_cb() ... Host is down (112)` when a paired audio device is off or out of range, and the USB-C `GET_CURRENT_CAM command failed` notice. Ignored records are not counted, but they stay visible in the evidence as `[ignored: reason]` and are tallied as `journal_ignored`. A similar message that is not on the list still counts.
 
 Graphs use timestamped real observations. A gap longer than two minutes is left unconnected. A fresh installation has no historical data; history accumulates from scans and while the panel is open. The overview retains recent observations; History reads the selected range from local storage.
 
@@ -142,7 +144,7 @@ shellcheck doctor-checks.sh
 python3 tests/native.py --shell-root /path/to/omarchy/shell
 ```
 
-The native test opens a temporary panel, validates variable-height navigation and unknown-state handling, captures all pages, and closes automatically. It uses fixture data labeled as such in evidence. `verification/` holds native screenshots and validation records. The browser study in `design/` is an earlier sample-data concept; the installed interface is native QML.
+`tests/test_benign_journal.py` pins every known-harmless journal pattern with a positive case and near-misses that must still count, and fails if a pattern is added without a case. The native test opens a temporary panel, validates variable-height navigation and unknown-state handling, captures all pages, and closes automatically. It uses fixture data labeled as such in evidence. `verification/` holds native screenshots and validation records. The browser study in `design/` is an earlier sample-data concept; the installed interface is native QML.
 
 The collector uses four bounded probe workers, explicit exit-status handling and process-group cleanup on timeouts/cancellation. Ambient Canvas drawing runs at 10 Hz only while visible, without expensive shadow blur. Separate QML components own hardware graphics, graphs, overview, evidence, history and settings.
 
