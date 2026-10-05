@@ -47,6 +47,6 @@ test_activation_failure_retains_receipt_and_backup (test_install.InstallTests.te
 test_refuses_unrelated_nonempty_directory (test_install.InstallTests.test_refuses_unrelated_nonempty_directory) ... ok
 
 ----------------------------------------------------------------------
-Ran 47 tests in 2.679s
+Ran 47 tests in 2.177s
 
 OK

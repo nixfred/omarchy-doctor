@@ -382,10 +382,11 @@ class Probes:
                     return result("gpu", "gpu", "Graphics & driver", "ok", f"DRM GPU reports {busy:.0f}% activity.", str(path), "lspci -k", {"gpu_pct": busy})
             except OSError:
                 pass
-        # Not every DRM driver exports gpu_busy_percent (xe and AMD do not on this kernel),
-        # but all expose the device power state. D0 means the GPU is powered and active -
-        # a valid "the graphics stack answers" signal; any other state is reported as
-        # inactive and is never treated as healthy.
+        # gpu_busy_percent is not universally under device/ (i915 puts it there, amdgpu under
+        # the card, and xe exposes none at all), so on systems where the glob above found
+        # nothing, fall back to the DRM device power state, which all DRM drivers expose:
+        # D0 means the GPU is powered and active - a valid "the graphics stack answers"
+        # signal; any other state is reported as inactive and never treated as healthy.
         active, inactive = [], []
         for path in sorted(Path("/sys/class/drm").glob("card[0-9]*/device/power_state")):
             try:
