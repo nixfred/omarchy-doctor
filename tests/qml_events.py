@@ -3,6 +3,9 @@ import json,os,shutil,subprocess,tempfile
 from pathlib import Path
 ROOT=Path(os.environ.get("DOCTOR_RUNTIME_ROOT",str(Path(__file__).resolve().parents[1])))
 OUT=Path(os.environ.get("DOCTOR_QML_LOG",str(Path(tempfile.gettempdir())/"omarchy-doctor-events.log")))
+if not os.environ.get('XDG_RUNTIME_DIR') or not os.environ.get('WAYLAND_DISPLAY'):
+    raise SystemExit('A Wayland desktop environment is required: export its XDG_RUNTIME_DIR and WAYLAND_DISPLAY before native tests.')
+
 with tempfile.TemporaryDirectory(prefix='doctor-qml-events-') as folder:
  work=Path(folder)
  for name in ('Commons','Ui','services'):(work/name).symlink_to(Path(os.environ['OMARCHY_PATH'])/'shell'/name,target_is_directory=True)
@@ -44,6 +47,6 @@ ShellRoot {
  assert p.returncode==0,log
  for bad in ('ERROR:', 'ReferenceError','TypeError','Unable to assign','Flow will not function'):
   assert bad not in log,log
- for expected in ('DEFAULT_FILTER needs_fix','TOP_FILTERS Needs fixing|Investigate|History|All','NEW_FILTER 0','HIST_FILTER 1','SPECIFIC_ID crashes:abc','CLOSED false','NEEDS_FILTER 1','VISIBLE_NUMBER F-000042','INVESTIGATE_FILTER 0','ATTENTION_FILTER 1','COMBINED_NEEDS 2','PRIORITY_FIRST active','NEW_MONITOR 1 false','HIST_ACTIONABLE 1 true','UNAVAILABLE_UNVERIFIED unverified','INVESTIGATE_UNAVAILABLE 1','READBACK_VERSION 1.6.0','READBACK_OPENED false',"HEADLINE Let's look at 1 concern(s)."):
+ for expected in ('DEFAULT_FILTER needs_fix','TOP_FILTERS Needs fixing|Investigate|Log notes|History|All','NEW_FILTER 0','HIST_FILTER 1','SPECIFIC_ID crashes:abc','CLOSED false','NEEDS_FILTER 1','VISIBLE_NUMBER F-000042','INVESTIGATE_FILTER 0','ATTENTION_FILTER 1','COMBINED_NEEDS 2','PRIORITY_FIRST active','NEW_MONITOR 1 false','HIST_ACTIONABLE 1 true','UNAVAILABLE_UNVERIFIED unverified','INVESTIGATE_UNAVAILABLE 1','READBACK_VERSION 1.6.0','READBACK_OPENED false',"HEADLINE Let's look at 1 actionable concern(s)."):
   assert expected in log,log
  print('PASS: hidden native pages load, specific signature selection, truthful filters/headline, no panel opened.')

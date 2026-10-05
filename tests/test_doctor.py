@@ -58,7 +58,7 @@ class Diagnostics(unittest.TestCase):
         self.assertEqual(doctor.Probes(lambda *a,**kw:probe('',1)).packages(True)['state'],'unknown')
 
     def test_package_integrity_validates_summary(self):
-        p=doctor.Probes(lambda *a,**kw:probe('bash: 10 total files, 0 missing files\nlinux: 4 total files, 1 missing files'))
+        p=doctor.Probes(lambda *a,**kw:(probe('bash: 10 total files, 0 missing files\nlinux: 4 total files, 1 missing file\nwarning: linux: /fixture/absent (No such file or directory)',1) | {'ok':True}))
         self.assertEqual(p.packages(True)['state'],'warn')
         self.assertEqual(p.packages()['state'],'skipped')
 

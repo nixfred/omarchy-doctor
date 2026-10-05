@@ -36,7 +36,7 @@ Click **Run Doctor** for a quick scan. Start with **Overview**: it shows the sys
 
 ![Native Overview with example health readings and one storage concern](docs/images/overview.png)
 
-Quick scans cover services, logs, processor, memory, temperature, storage, drive health, graphics, battery, networking, audio, Bluetooth, Wi-Fi, crashes and shell warnings. **Deep scan** also inspects package-owned files; it can take longer. A quick scan skipping that work does not clear an earlier package warning. **Cancel** leaves unfinished coverage visible.
+Quick scans cover services, logs, processor, memory, temperature, storage, drive health, graphics, battery, networking, audio, Bluetooth, Wi-Fi, crashes and shell warnings. **Deep scan** also inspects package-owned files; it can take longer. A quick scan skipping that work retains the latest warning or unavailable result until a measured recheck replaces it. **Cancel** leaves unfinished coverage visible.
 
 | Result | What to do |
 | --- | --- |
@@ -49,7 +49,7 @@ The bar's number counts active actionable concerns and current unavailable check
 
 ## Understand an issue
 
-**Issues** brings findings, repair records, graphs and saved checkups together. Start with **Needs fixing**, the default filter. **Investigate** shows current uncertainty, **History** shows past events, and **All** keeps every check available. Old events can still need fixing when their cause has been diagnosed.
+**Issues** separates Findings, Repair records and Checkup history into focused views. The panel fits the available screen work area, and long evidence uses visible Previous/Next pages at normal text size. Identity and checkup lists also have page controls; wheel scrolling is disabled. Start with **Needs fixing**, the default filter. **Investigate** shows current uncertainty, **History** shows past events, and **All** keeps every check available. Old events can still need fixing when their cause has been diagnosed.
 
 ![Native Issues showing a selected example storage warning and agent controls](docs/images/issues.png)
 
@@ -61,7 +61,7 @@ Crash and journal entries are grouped by a specific signature. **Historical** me
 
 Scroll within the evidence card to see the inspection command and collected output.
 
-![Native evidence card scrolled to the example command and collected output](docs/images/inspect.png)
+![Earlier native evidence example showing the command and collected output](docs/images/inspect.png)
 
 ## Ask your agent—and check the result
 
@@ -73,7 +73,7 @@ The repair record tracks the attempt and the returned report. **Show the work** 
 
 Scroll through the expanded record to see the measured checks.
 
-![Native repair record scrolled to before/after readings and independent verification](docs/images/repair-proof.png)
+![Earlier native repair example showing before/after readings and independent verification](docs/images/repair-proof.png)
 
 An agent saying “done” does not mark a repair verified. A state check must measure healthy again. Crashes and log events stay repair-unproven: a quiet log cannot prove their cause was fixed. If the agent returns no usable report, Doctor shows that honestly. A later failure reopens the concern while preserving earlier verification records. **Recheck** runs the selected diagnostic again.
 
@@ -101,7 +101,7 @@ Left-click the bar icon to open or close Doctor; middle-click to scan; right-cli
 
 **Why is a hardware check unavailable?** Some sensors and tools are optional. `lm_sensors` improves temperature coverage; `smartmontools` adds drive-health checks. Unsupported hardware and denied permissions remain unknown. SMART checks never open a password prompt. Install optional tools only if you need that coverage.
 
-**Why does package integrity still warn?** Deep scan uses package-tool output. Missing files and access-denied paths need investigation; a warning alone does not establish that files were deleted. Read the evidence with your agent before changing packages or permissions.
+**Why does package integrity still warn?** Deep scan uses package-tool output. Doctor counts a path as missing only when the check reports actual absence. Access-denied or other unreadable paths are incomplete coverage: they appear in Investigate, with their evidence retained. A prior agent report cannot establish current healthy coverage. Read the evidence with your agent before changing packages or permissions.
 
 **Where is my data?** Observations and checkups stay locally in `~/.local/state/omarchy-doctor/` (or `$XDG_STATE_HOME/omarchy-doctor`). Readings/checkups retain up to seven days, with at most 1,000 checkups. Finding numbers and repair records persist for tracking. Each computer keeps its own state.
 
@@ -112,3 +112,22 @@ Left-click the bar icon to open or close Doctor; middle-click to scan; right-cli
 For command-line use, agent completion details and tests, see [Development and verification](docs/development.md).
 
 Made by [Fred Nix](https://nixfred.com) · [Source on GitHub](https://github.com/nixfred/omarchy-doctor) · [MIT license](LICENSE).
+
+Agent handoffs now open a prominent working view with the finding, confirmed agent, elapsed time, real events, receipts and independent verification. Supported Codex runs stay in the background; other agents keep an accessible visible session. The icon opens the current concern directly: green means fresh supported health, yellow a current warning, red a major current problem, and gray names incomplete or old evidence. Historical events remain in history. Valid measured recovery clears a passing concern without erasing its evidence or crediting an agent; thermal recovery requires two degrees of headroom below every sensor warning point.
+
+Past-event labels distinguish an unreviewed event from a current finding that still needs action. Unknown checks remain visibly incomplete. A handoff or agent report does not verify repair, and recovery without a Doctor handoff is labeled as a measured recovery.
+
+Background Codex requires exact existing trusted-directory configuration and successful real Git repository discovery. A non-repository or home-wide repository context uses the existing visible interactive launcher. Doctor does not add a repository-check bypass, change trust, or weaken the existing approval policy. Saved launch failures identify the finding and retain their log; changing the planner does not retry a failed attempt.
+
+Journal collection decodes journald MESSAGE binary arrays as UTF-8, strips ANSI controls, retains normalized warning evidence, and marks malformed/lossy/untimed data as incomplete coverage. Log warnings, explicit QA records and historical/recovered events stay readable in Log notes/history; recurrence alone is not repair proof. Existing cursor identities and historical records survive normalization, with prior aliases retained.
+
+The bar's numbered badge counts fresh actionable faults only. Coverage and unproven event review use neutral gray with separate counts in the panel. Green means no known actionable problems in the fresh checked scope, not that skipped or unsupported checks passed. Ordinary informational/coverage records do not solicit an agent repair, and old failed handoffs stay in repair history. A supported manual assessment can still flag a log warning as actionable. No blanket pi.audio or warning suppression is used.
+
+
+### Finish verification
+
+Click a gray Doctor icon to open the verification checklist. The shell action reads the same available current-boot/seven-day user-journal scope through a fixed end time in oldest-first cursor pages. Each operation reads at most 20 pages / 15 seconds; Continue resumes its committed cursor, cancellation retains progress, and EOF is required. Large pages shrink to preserve the per-page output bound. Cursor loss, access limits and invalid/lossy records stay incomplete; restart is explicit and old evidence remains. Once complete, ordinary checks read incremental tails (at most 50 pages / 8 seconds), preserving the verified baseline; any remaining backlog stays gray. This verifies collection, not a repair or the absence of UI warnings.
+
+Verify protected package files first shows the exact read-only command `sudo /usr/bin/pacman -Qk`. Opening its normal Omarchy terminal is user-triggered; authenticate there and use Ctrl+C to cancel. Only pacman is elevated. Doctor and its history are never run as root; packages, permissions, agents and shell configuration are unchanged. A successful complete measurement keeps its original timestamp and is reused only within ten minutes with unchanged package database metadata. It is not silently renewed; expiry or a changed inventory requires a fresh user-triggered verification. Actual missing files stay actionable, while denial, cancellation, failed launch and incomplete output remain unverified.
+
+The boot-journal gap also has Read complete boot journal: the same available current-boot/seven-day priority 0–3 query, all field contents, cursor continuation and confirmed EOF. It preserves the existing narrow benign-note and crash-duplicate policy; invalid records still block completion. This handles invalid-field coverage gaps without weakening the healthy definition or silently broadening privileges.

@@ -9,7 +9,7 @@
     "bar-widget"
   ],
   "entryPoints": {
-    "barWidget": "runtime-1.6.0-r3/Doctor.qml"
+    "barWidget": "runtime-1.6.0-r10-final/Doctor.qml"
   },
   "barWidget": {
     "displayName": "Omarchy Doctor",
