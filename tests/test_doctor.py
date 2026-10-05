@@ -3,6 +3,7 @@ import io
 import json
 import os
 from pathlib import Path
+import shutil
 import sqlite3
 import sys
 import tempfile
@@ -75,6 +76,48 @@ class Diagnostics(unittest.TestCase):
         row=doctor.Probes(lambda *a,**kw:probe('GPU A, 42, 2, 10, 6000, 580\nGPU B, 94, 80, 5000, 6000, 580')).gpu()
         self.assertEqual(row['state'],'bad')
         self.assertEqual(row['metrics']['gpu_temperature_c'],94)
+
+    def _drm_cards(self, states):
+        """Create a throwaway DRM tree; return its card power_state paths."""
+        paths, roots = [], []
+        for card, state in states:
+            root = Path(tempfile.mkdtemp()) / 'drm' / card
+            (root / 'device').mkdir(parents=True)
+            (root / 'device' / 'power_state').write_text(state + '\n')
+            paths.append(root / 'device' / 'power_state')
+            roots.append(str(root.parent))
+        for r in roots:
+            self.addCleanup(shutil.rmtree, r)
+        return paths
+
+    def _gpu_drm_globs(self, fake):
+        real = Path.glob
+        def glob(self, pattern, *args, **kwargs):
+            return iter(fake) if 'card[0-9]*' in pattern else real(self, pattern, *args, **kwargs)
+        return glob
+
+    def test_drm_power_state_fallback_covers_xe_gpus(self):
+        paths = self._drm_cards([("card0", "D0"), ("card1", "D0"), ("card2", "D0")])
+        with patch.object(doctor.Path, "glob", self._gpu_drm_globs(paths)):
+            row = doctor.Probes(lambda *a, **k: probe('', 9)).gpu()
+        self.assertEqual(row['state'], 'ok')
+        self.assertEqual(row['metrics'], {'gpu_active': 3, 'gpu_inactive': 0})
+        self.assertIn('card0 (D0)', row['evidence'])
+
+    def test_drm_card_that_is_not_active_is_reported_not_healthy(self):
+        paths = self._drm_cards([("card0", "D3hot"), ("card1", "D0")])
+        with patch.object(doctor.Path, "glob", self._gpu_drm_globs(paths)):
+            row = doctor.Probes(lambda *a, **k: probe('', 9)).gpu()
+        self.assertEqual(row['state'], 'ok')
+        self.assertEqual(row['metrics'], {'gpu_active': 1, 'gpu_inactive': 1})
+        self.assertIn('card0 (D3hot) - not active', row['evidence'])
+
+    def test_drm_power_state_read_error_is_ignored(self):
+        def run(args,**kw):return probe('',9)
+        def cards():return [str(Path('/sys/class/drm')/('card0/device/power_state'))]
+        with patch.object(doctor.Path,'glob',side_effect=[[],[],cards()]),patch('pathlib.Path.read_text',side_effect=OSError('EACCES')):
+            row=doctor.Probes(run).gpu()
+            self.assertEqual(row['state'],'unknown')
 
     def test_drives_named_and_all_inspected(self):
         calls=[]

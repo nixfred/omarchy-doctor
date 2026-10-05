@@ -22,7 +22,7 @@ import threading
 import time
 import uuid
 
-VERSION = "1.4.1"
+VERSION = "1.4.2"
 SCHEMA = 1
 STATES = {"ok", "warn", "bad", "unknown", "skipped"}
 RETENTION = 7 * 86400
@@ -382,6 +382,22 @@ class Probes:
                     return result("gpu", "gpu", "Graphics & driver", "ok", f"DRM GPU reports {busy:.0f}% activity.", str(path), "lspci -k", {"gpu_pct": busy})
             except OSError:
                 pass
+        # Not every DRM driver exports gpu_busy_percent (xe and AMD do not on this kernel),
+        # but all expose the device power state. D0 means the GPU is powered and active -
+        # a valid "the graphics stack answers" signal; any other state is reported as
+        # inactive and is never treated as healthy.
+        active, inactive = [], []
+        for path in sorted(Path("/sys/class/drm").glob("card[0-9]*/device/power_state")):
+            try:
+                state = path.read_text().strip()
+            except OSError:
+                continue
+            (active if state == "D0" else inactive).append(path.parent.parent.name + " (" + state + ")")
+        if active:
+            return result("gpu", "gpu", "Graphics & driver", "ok",
+                f"{len(active)} active DRM GPU(s); the driver stack responds.",
+                "\n".join(active + [str(x) + " - not active" for x in inactive]),
+                "lspci -k", {"gpu_active": len(active), "gpu_inactive": len(inactive)})
         return unavailable("gpu", "gpu", "Graphics & driver", p)
 
     def battery(self):

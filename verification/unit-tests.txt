@@ -1,6 +1,18 @@
+test_each_pattern_matches_its_real_notice_and_only_that_pattern (test_benign_journal.BenignJournalPatterns.test_each_pattern_matches_its_real_notice_and_only_that_pattern) ... ok
+test_every_pattern_has_a_case (test_benign_journal.BenignJournalPatterns.test_every_pattern_has_a_case) ... ok
+test_every_reason_is_a_nonempty_explanation (test_benign_journal.BenignJournalPatterns.test_every_reason_is_a_nonempty_explanation) ... ok
+test_near_misses_do_not_match (test_benign_journal.BenignJournalPatterns.test_near_misses_do_not_match) ... ok
+test_unrelated_failures_do_not_match (test_benign_journal.BenignJournalPatterns.test_unrelated_failures_do_not_match) ... ok
+test_ignored_entry_falls_back_to_comm_when_identifier_is_missing (test_benign_journal.BenignJournalStaysVisible.test_ignored_entry_falls_back_to_comm_when_identifier_is_missing) ... ok
+test_matched_notice_is_ignored_with_reason_and_still_reported (test_benign_journal.BenignJournalStaysVisible.test_matched_notice_is_ignored_with_reason_and_still_reported) ... ok
+test_matched_notice_never_hides_a_real_failure_next_to_it (test_benign_journal.BenignJournalStaysVisible.test_matched_notice_never_hides_a_real_failure_next_to_it) ... ok
+test_near_misses_still_count_through_the_journal_check (test_benign_journal.BenignJournalStaysVisible.test_near_misses_still_count_through_the_journal_check) ... ok
 test_all_nvidia_devices_checked (test_doctor.Diagnostics.test_all_nvidia_devices_checked) ... ok
 test_benign_qml_log_is_not_warning (test_doctor.Diagnostics.test_benign_qml_log_is_not_warning) ... ok
 test_drives_named_and_all_inspected (test_doctor.Diagnostics.test_drives_named_and_all_inspected) ... ok
+test_drm_card_that_is_not_active_is_reported_not_healthy (test_doctor.Diagnostics.test_drm_card_that_is_not_active_is_reported_not_healthy) ... ok
+test_drm_power_state_fallback_covers_xe_gpus (test_doctor.Diagnostics.test_drm_power_state_fallback_covers_xe_gpus) ... ok
+test_drm_power_state_read_error_is_ignored (test_doctor.Diagnostics.test_drm_power_state_read_error_is_ignored) ... ok
 test_explicit_no_coredumps_state (test_doctor.Diagnostics.test_explicit_no_coredumps_state) ... ok
 test_failed_crash_query_is_unknown (test_doctor.Diagnostics.test_failed_crash_query_is_unknown) ... ok
 test_failed_package_query_is_unknown (test_doctor.Diagnostics.test_failed_package_query_is_unknown) ... ok
@@ -16,15 +28,25 @@ test_real_shell_warning_is_preserved (test_doctor.Diagnostics.test_real_shell_wa
 test_runner_timeout_is_bounded (test_doctor.Diagnostics.test_runner_timeout_is_bounded) ... ok
 test_sensor_limits_are_not_current_temperature (test_doctor.Diagnostics.test_sensor_limits_are_not_current_temperature) ... ok
 test_smart_permission_error_is_unknown (test_doctor.Diagnostics.test_smart_permission_error_is_unknown) ... ok
+test_smart_permission_error_retries_once_with_sudo_n (test_doctor.Diagnostics.test_smart_permission_error_retries_once_with_sudo_n) ... ok
 test_stream_has_start_results_and_end_data (test_doctor.Diagnostics.test_stream_has_start_results_and_end_data) ... ok
+test_sudo_password_required_stays_unknown_without_prompting (test_doctor.Diagnostics.test_sudo_password_required_stays_unknown_without_prompting) ... ok
 test_system_and_user_scopes_both_checked (test_doctor.Diagnostics.test_system_and_user_scopes_both_checked) ... ok
 test_unknown_partial_and_skipped_never_all_clear (test_doctor.Diagnostics.test_unknown_partial_and_skipped_never_all_clear) ... ok
+test_baselines_ignore_abandoned_and_fix_regresses_when_problem_returns (test_doctor.HistoryTests.test_baselines_ignore_abandoned_and_fix_regresses_when_problem_returns) ... ok
+test_event_checks_count_only_after_hand_off (test_doctor.HistoryTests.test_event_checks_count_only_after_hand_off) ... ok
+test_fix_lifecycle_pending_still_failing_then_fixed (test_doctor.HistoryTests.test_fix_lifecycle_pending_still_failing_then_fixed) ... ok
+test_fix_prompt_carries_evidence_and_recheck (test_doctor.HistoryTests.test_fix_prompt_carries_evidence_and_recheck) ... ok
 test_history_persistence_changes_retention_and_permissions (test_doctor.HistoryTests.test_history_persistence_changes_retention_and_permissions) ... ok
+test_known_hardware_notices_are_ignored_but_visible (test_doctor.HistoryTests.test_known_hardware_notices_are_ignored_but_visible) ... ok
+test_new_fix_supersedes_open_attempt_and_skips_do_not_resolve (test_doctor.HistoryTests.test_new_fix_supersedes_open_attempt_and_skips_do_not_resolve) ... ok
+test_prompt_forbids_hiding_evidence (test_doctor.HistoryTests.test_prompt_forbids_hiding_evidence) ... ok
 test_skipped_check_is_not_a_resolved_or_new_finding (test_doctor.HistoryTests.test_skipped_check_is_not_a_resolved_or_new_finding) ... ok
+test_temperature_uses_hardware_limits (test_doctor.HistoryTests.test_temperature_uses_hardware_limits) ... ok
 test_activation_failure_retains_receipt_and_backup (test_install.InstallTests.test_activation_failure_retains_receipt_and_backup) ... ok
 test_refuses_unrelated_nonempty_directory (test_install.InstallTests.test_refuses_unrelated_nonempty_directory) ... ok
 
 ----------------------------------------------------------------------
-Ran 25 tests in 0.124s
+Ran 47 tests in 2.679s
 
 OK

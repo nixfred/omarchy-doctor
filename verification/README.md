@@ -10,7 +10,7 @@ The bounded Python collector streams 16 checks, covers system and user services,
 
 ## Verification
 
-- **25 unit tests pass:** [output](unit-tests.txt), covering diagnostic semantics, subprocess timeout, storage, change comparisons and installation failure recovery.
+- **47 unit tests pass:** [output](unit-tests.txt), covering diagnostic semantics, subprocess timeout, storage, change comparisons and installation failure recovery.
 - **Native rendering passes:** all four pages, compact layout, light/dark colors, variable-height keyboard selection and unknown-state handling; [log](native-validation.log). History tests also verify partial archives stay incomplete, newer observations survive a history load, and obsolete range responses are ignored.
 - **Actual partial process failure passes:** a fixture collector exits 7 after one healthy result; native UI retains the result but reports incomplete/unknown. [Log](partial-scan.log).
 - **Installed live tests pass:** quick and deep scans produce all 16 results; live samples and saved scans accumulate; four pages render; closing stops the sampler. The raw status dumps from these runs are kept only on the test machine because they contain host network and journal data.
