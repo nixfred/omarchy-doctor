@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 import re
 import sys
+import time
 import unittest
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
@@ -12,7 +13,7 @@ def probe(text="",code=0):
 
 def journal(*entries):
     """Run Probes.journal() over fake journalctl JSON lines; each entry is a (identifier, message) pair."""
-    lines='\n'.join(json.dumps({"SYSLOG_IDENTIFIER":i,"MESSAGE":m}) for i,m in entries)
+    lines='\n'.join(json.dumps({"SYSLOG_IDENTIFIER":i,"MESSAGE":m,"__REALTIME_TIMESTAMP":str(int((time.time()-60)*1000000))}) for i,m in entries)
     return doctor.Probes(lambda *a,**kw:probe(lines)).journal()
 
 def matches(message):
@@ -92,14 +93,14 @@ class BenignJournalStaysVisible(unittest.TestCase):
         good=CASES["TDX"][0]
         row=journal(("kernel",good),("app","real failure"),("kernel",CASES["ucsi GET_CURRENT_CAM"][0]))
         self.assertEqual((row['state'],row['metrics']['journal_entries'],row['metrics']['journal_ignored']),('warn',1,2))
-        evidence=row['evidence']
+        evidence='\n'.join([f['evidence'] for f in row['findings']]+[row['evidence']])
         self.assertIn('app: real failure',evidence)
         self.assertEqual(evidence.count('[ignored:'),2)
         # Real findings are listed before the ignored ones, so the ignored notices never lead the evidence.
         self.assertLess(evidence.index('app: real failure'),evidence.index('[ignored:'))
 
     def test_ignored_entry_falls_back_to_comm_when_identifier_is_missing(self):
-        line=json.dumps({"_COMM":"wpa_supplicant","MESSAGE":CASES["nl80211 multicast"][0]})
+        line=json.dumps({"_COMM":"wpa_supplicant","MESSAGE":CASES["nl80211 multicast"][0],"__REALTIME_TIMESTAMP":str(int((time.time()-60)*1000000))})
         row=doctor.Probes(lambda *a,**kw:probe(line)).journal()
         self.assertEqual(row['metrics']['journal_ignored'],1)
         self.assertIn('wpa_supplicant: '+CASES["nl80211 multicast"][0]+'  [ignored:',row['evidence'])

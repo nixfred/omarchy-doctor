@@ -11,7 +11,7 @@ import tempfile
 
 ROOT=Path(__file__).resolve().parent
 RUNTIME=['Doctor.qml','DoctorAction.qml','HardwareGlyph.qml','MedicalCross.qml','SystemMap.qml','HistoryGraph.qml',
-         'OverviewPane.qml','FindingsPane.qml','HistoryPane.qml','FixesPane.qml','AboutPane.qml','SettingsPane.qml','Model.js',
+         'OverviewPane.qml','IssuesPane.qml','FindingsPane.qml','HistoryPane.qml','FixesPane.qml','AboutPane.qml','SettingsPane.qml','Model.js',
          'doctor.py','doctor-checks.sh','manifest.json','README.md','LICENSE']
 
 def main():
@@ -42,6 +42,14 @@ def main():
     stage=Path(tempfile.mkdtemp(prefix='.doctor-install-',dir=dest.parent))
     try:
         for name in RUNTIME:shutil.copy2(ROOT/name,stage/name)
+        # Distinct release URLs let an existing QML engine load new code without a shell restart.
+        entry=Path(json.loads((ROOT/'manifest.json').read_text())['entryPoints']['barWidget'])
+        if entry.parent != Path('.'):
+            runtime=stage/entry.parent
+            runtime.mkdir(parents=True,exist_ok=True)
+            for name in RUNTIME:
+                if Path(name).suffix in ('.qml','.js') or name in ('doctor.py','doctor-checks.sh'):
+                    shutil.copy2(ROOT/name,runtime/name)
         for name in ['doctor.py','doctor-checks.sh']:(stage/name).chmod(0o755)
         subprocess.run(['omarchy','plugin','validate',str(stage)],check=True)
         # Existing installation remains recoverable from the explicit backup.

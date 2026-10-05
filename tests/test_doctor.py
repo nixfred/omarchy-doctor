@@ -14,6 +14,16 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 import doctor
 
 def probe(text="",code=0):
+    # Journal fixtures include genuine event metadata, unlike sensor JSON.
+    try:
+        lines=[]
+        for line in text.splitlines():
+            item=json.loads(line)
+            if isinstance(item,dict) and ('MESSAGE' in item or '_COMM' in item):
+                item.setdefault('__REALTIME_TIMESTAMP',str(int((time.time()-60)*1000000)))
+            lines.append(json.dumps(item))
+        if lines:text='\n'.join(lines)
+    except (ValueError,TypeError):pass
     return {"ok":code==0,"code":code,"stdout":text,"output":text,"command":"fake diagnostic"}
 
 class Diagnostics(unittest.TestCase):
@@ -56,7 +66,7 @@ class Diagnostics(unittest.TestCase):
         self.assertEqual(doctor.Probes(lambda *a,**kw:probe('Permission denied',1)).crashes()['state'],'unknown')
 
     def test_explicit_no_coredumps_state(self):
-        self.assertEqual(doctor.Probes(lambda *a,**kw:probe('No coredumps found.',1)).crashes()['state'],'ok')
+        self.assertEqual(doctor.Probes(lambda *a,**kw:probe('')).crashes()['state'],'ok')
 
     def test_benign_qml_log_is_not_warning(self):
         entry={'_COMM':'quickshell','PRIORITY':'6','MESSAGE':'loaded Main.qml successfully'}
@@ -226,33 +236,25 @@ class HistoryTests(unittest.TestCase):
         for part in ('btrfs-scrub@-.service failed','systemctl --failed','recheck services','fix abc','Ask me before anything destructive'):
             self.assertIn(part,text)
 
-    def test_event_checks_count_only_after_hand_off(self):
+    def test_event_queries_do_not_reset_at_hand_off(self):
         calls=[]
         def run(args,**kw):
             calls.append(args)
-            return probe('No coredumps found.',1) if args[0]=='coredumpctl' else probe('')
+            return probe('')
         p=doctor.Probes(run,since={'crashes':1790985613,'journal':1790985613})
-        row=p.crashes()
-        self.assertIn('@1790985613',calls[0]);self.assertNotIn('today',calls[0])
-        self.assertEqual(row['state'],'ok');self.assertIn('since the hand-off',row['summary'])
-        self.assertEqual(p.journal()['state'],'ok');self.assertIn('@1790985613',calls[1])
-        doctor.Probes(run).crashes()
-        self.assertIn('today',calls[2])
+        self.assertEqual(p.crashes()['state'],'ok')
+        self.assertEqual(p.journal()['state'],'ok')
+        self.assertTrue(all('@1790985613' not in args for args in calls))
 
-    def test_baselines_ignore_abandoned_and_fix_regresses_when_problem_returns(self):
+    def test_event_silence_does_not_mark_fix_fixed(self):
         with tempfile.TemporaryDirectory() as folder:
             h=doctor.History(Path(folder)/'history.sqlite3')
-            row=doctor.result('crashes','system','Crashes','warn','2 core dumps')
-            fix=h.open_fix(row,'grok')
-            h.db.execute("UPDATE fixes SET status='abandoned' WHERE id=?",(fix,));h.db.commit()
-            self.assertEqual(h.baselines(),{})
-            fix=h.open_fix(row,'grok')
-            self.assertIn('crashes',h.baselines())
-            ok=doctor.result('crashes','system','Crashes','ok','No new core dumps')
-            h.settle([ok],'recheck')
-            self.assertEqual(h.fixes()[0]['status'],'fixed')
-            self.assertEqual(h.settle([row],'quick')[0]['status'],'regressed')
-            self.assertEqual(h.fixes()[0]['status'],'regressed')
+            for check in ('crashes','journal','shell','crashes:abc'):
+                row=doctor.result(check,'system','Event','warn','Old evidence')
+                fix=h.open_fix(row,'fixture')
+                ok=doctor.result(check,'system','Event','ok','No new events')
+                self.assertEqual(h.settle([ok],'recheck'),[])
+                self.assertEqual(next(f for f in h.fixes() if f['id']==fix)['status'],'pending')
             h.close()
 
     def test_prompt_forbids_hiding_evidence(self):

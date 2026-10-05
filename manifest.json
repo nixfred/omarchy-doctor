@@ -2,14 +2,14 @@
   "schemaVersion": 1,
   "id": "nixfred.doctor",
   "name": "Omarchy Doctor",
-  "version": "1.4.1",
+  "version": "1.6.0",
   "author": "Fred Nix",
   "description": "Animated system diagnostics with live hardware graphics, evidence, bounded scans and seven-day local history.",
   "kinds": [
     "bar-widget"
   ],
   "entryPoints": {
-    "barWidget": "Doctor.qml"
+    "barWidget": "runtime-1.6.0-r3/Doctor.qml"
   },
   "barWidget": {
     "displayName": "Omarchy Doctor",

@@ -1,151 +1,114 @@
 # Omarchy Doctor
 
-![Omarchy Doctor](docs/omarchy-doctor.jpg)
+![Omarchy Doctor — check, understand, verify](docs/images/hero.png)
 
-A native, animated diagnostic companion to Pulse. Doctor combines a living system diagram, CPU/RAM/storage/GPU illustrations, live graphs, and evidence-backed findings in one Omarchy bar plugin.
+**A clearer picture of your Omarchy desktop.** Doctor checks your system, explains warnings, and keeps the evidence behind an agent's repair. Open it from your bar whenever something feels wrong—or just to see how your machine is doing.
 
-![Installed Doctor with real system data](verification/live-overview.png)
+Doctor's own checks read the system; they do not repair it. **Ask my agent** hands a selected issue to your chosen Omarchy assistant, which works under its own permissions. Its report and Doctor's independent recheck appear together.
 
-[Delivery and verification](verification/README.md) · [Kimi3 review decisions](verification/KIMI-DECISIONS.md)
+The screenshots below are native Doctor 1.6.0 panes rendered with invented example data. They illustrate the interface, not anyone's real computer or a promised result. Colors follow your Omarchy theme.
 
-## What it does
+## Install and open
 
-- Animated system core, moving diagnostic connections, active processor cells, a memory fill wave, rotating disk and graphics glyphs, and staged page entrances.
-- Live CPU, available RAM, root storage and GPU readings while the panel is open. Missing readings remain unavailable.
-- Sixteen diagnostic checks: system and user services, boot journal, CPU, memory and pressure, current temperature inputs, root storage, physical-drive SMART coverage, graphics, battery, routes and DNS, packages, audio, Bluetooth, Wi-Fi, crashes, and Omarchy shell warnings.
-- Findings ranked by severity, with actual output, timestamps, duration and copyable inspection commands. New, persistent and resolved findings are identified against the previous scan.
-- Quick and deep scans. Deep scans add package-file integrity; routine scans report orphan counts without walking all package-owned files.
-- Seven days of local observations and up to 1,000 checkups. History offers 1-hour, 24-hour and 7-day ranges, saved scan inspection, and JSON report export.
-- **Fix with agent.** Any problem, attention or unavailable finding can be handed to your default Omarchy coding agent (`omarchy agent prompt`, the same path Omarchy's own crash notifications use). The agent gets the finding, its collected evidence and the inspect command, along with standing rules: inspect first, fix it the Arch/Omarchy way, ask before anything destructive. It finishes by running `omarchy-shell nixfred.doctor recheck <check>`, which re-probes only that check.
-- **Fixes history.** Every hand-off is recorded. A fix counts only once Doctor itself measures the check healthy again, whether from the agent's recheck, your Recheck button or a later full scan. The Fixes tab shows what was fixed, what is still with an agent and what is still failing, with before and after summaries, the agent used and how long it took.
-- Theme-aware colors, a single Omarchy typeface throughout, a compact layout, keyboard navigation, reduced motion and configurable automatic scans.
-
-The Doctor collector never repairs, deletes, installs packages, restarts services, kills applications or uploads diagnostic output. Its only writes are its own history, its fix records and exported reports. Changes to the system happen only when you press **Fix with agent**, and then they are made by your own agent, in its own terminal window, under its own permission settings. Doctor's briefing tells the agent to ask before anything destructive, but the agent's configuration is what actually enforces that. Choose the agent with `omarchy default agent <name>`. DNS checking resolves `example.com`. Commands in findings are copied only when requested; they are never executed by clicking a result.
-
-![Findings with Fix with agent](verification/live-findings.png)
-
-![Fixes history](verification/live-fixes.png)
-
-## Install
-
-Requires Omarchy Quattro/Quickshell, Git, Python 3 and the Omarchy plugin CLI.
-
-### Recommended: install with Omarchy
-
-Open a terminal and run:
+You need Omarchy Quattro with Quickshell, Python 3, Git and the Omarchy plugin CLI. In a terminal, as your normal desktop user:
 
 ```bash
 omarchy plugin add https://github.com/nixfred/omarchy-doctor.git --enable
 ```
 
-Omarchy downloads the repository into `~/.config/omarchy/plugins/nixfred.doctor`, validates it, and enables the plugin. Follow the prompts to confirm installation and choose its bar section. Run this as your normal desktop user, without `sudo`; you do not need a separate source checkout or to run `install.py`.
-
-Click the medical-cross icon on the bar to open Doctor, or run:
+Follow Omarchy's installation prompts. Click the medical cross in your bar, or open Doctor with:
 
 ```bash
 omarchy-shell nixfred.doctor open
 ```
 
-Update this installation with:
+To get updates:
 
 ```bash
 omarchy plugin update nixfred.doctor
 ```
 
-### Alternative: install from a source checkout
+Already keeping a source checkout? See the [source installation guide](docs/development.md#install-from-source). Use one installation approach consistently; neither needs `sudo`.
 
-Use the custom installer if you want its installation backups and automatic placement beside Pulse.
+## Your first checkup
 
-Open a terminal in the directory where you want to keep the source code, then download and install Doctor:
+Click **Run Doctor** for a quick scan. Start with **Overview**: it shows the system diagram, hardware readings and concerns worth reviewing. Click **Review issues** to continue. A fresh installation builds its history as you use it.
 
-```bash
-git clone https://github.com/nixfred/omarchy-doctor.git
-cd omarchy-doctor
-python3 install.py --enable
-```
+![Native Overview with example health readings and one storage concern](docs/images/overview.png)
 
-Run these commands as your normal desktop user, without `sudo`. If you already cloned the repository, open a terminal in that checkout and run only `python3 install.py --enable`.
+Quick scans cover services, logs, processor, memory, temperature, storage, drive health, graphics, battery, networking, audio, Bluetooth, Wi-Fi, crashes and shell warnings. **Deep scan** also inspects package-owned files; it can take longer. A quick scan skipping that work does not clear an earlier package warning. **Cancel** leaves unfinished coverage visible.
 
-This validates and copies the runtime into `~/.config/omarchy/plugins/nixfred.doctor`, backs up any prior installation and shell configuration, and places Doctor beside Pulse through Omarchy's public bar API. If Pulse is not on your bar, Doctor is added to the start of the right section. Existing widgets keep their order and settings. No shell restart is required. Omit `--enable` to install without placing it on the bar.
+| Result | What to do |
+| --- | --- |
+| Healthy / green | Completed, fresh checks found no unresolved concern. |
+| Attention / amber or Problem / red | Open Issues and read what triggered the result. |
+| Unavailable or incomplete | Doctor needs more evidence; a missing tool or permission can be the reason. |
+| Old result | Run a new scan. Results over ten minutes old cannot establish current health. |
 
-After installation with `--enable`, click the medical-cross icon on the bar to open Doctor, or run:
+The bar's number counts active actionable concerns and current unavailable checks. Past crash and log records have their own history count; rereading them does not create new repair work. A green result describes measured checks, not a guarantee about every part of the computer.
 
-```bash
-omarchy-shell nixfred.doctor open
-```
+## Understand an issue
 
-#### Update a source-checkout installation
+**Issues** brings findings, repair records, graphs and saved checkups together. Start with **Needs fixing**, the default filter. **Investigate** shows current uncertainty, **History** shows past events, and **All** keeps every check available. Old events can still need fixing when their cause has been diagnosed.
 
-From your existing source checkout, download the latest changes and run the installer again:
+![Native Issues showing a selected example storage warning and agent controls](docs/images/issues.png)
 
-```bash
-git pull --ff-only
-python3 install.py --enable
-```
+Choose a finding, then open **Show evidence & diagnosis**. You can inspect its time, source, output and diagnostic command. Copying the command does not run it. Finding numbers such as `F-000001` stay stable on this computer, so you can follow the same issue across checkups.
 
-### Optional hardware tools
+![Native expanded evidence showing the example finding's source and evidence time](docs/images/evidence.png)
 
-`lm_sensors` and `smartmontools` improve hardware coverage. Other checks use system-provided tools such as systemctl, journalctl, ip, getent, nmcli and wpctl. NVIDIA measurements use nvidia-smi; DRM activity is a fallback on other GPUs. Missing tools, permissions and unsupported sensors produce unavailable or skipped results, never a fabricated healthy verdict. SMART runs without privilege prompts. Reading an NVMe health log needs root, so when the plain read is denied Doctor retries once with `sudo -n`, which uses an existing passwordless rule or fails immediately; the drive then stays unknown and the evidence shows why. To allow only that read, add a sudoers drop-in such as `yourname ALL=(root) NOPASSWD: /usr/bin/smartctl ^-j -H /dev/[a-z0-9]+$` with `visudo -f /etc/sudoers.d/doctor-smart`.
+Crash and journal entries are grouped by a specific signature. **Historical** means the same old evidence was seen again; **New** means a new event appeared; **Recurring** means a new event matches an earlier signature. Those labels describe timing, not a confirmed cause. Known harmless journal notices remain in the evidence with an explanation.
 
-## Controls
+Scroll within the evidence card to see the inspection command and collected output.
 
-- The bar icon is a white medical cross on a badge: green when every completed check is healthy, amber when something needs attention, red when there is a problem, gray until Doctor has a complete result. The corner number counts open issues (problems plus attention).
-- Left-click the Doctor icon to open or close it; middle-click to scan; right-click for Settings.
-- Run Doctor performs a quick scan. Deep scan checks package files too. Cancel keeps partial results explicitly incomplete.
-- Click any hardware card or finding to inspect its evidence. A non-healthy finding shows **Fix with agent** and **Recheck**.
-- `R` scans, `C` copies the selected finding's diagnostic command, and `Esc` closes the panel. Arrow keys navigate the focused findings list using actual row geometry. Tab traverses controls.
-- About links to the source on GitHub and nixfred.com and explains how fixes, results and data work.
-- Settings offers animation/reduced motion and manual, 2-minute or 5-minute automatic scans. Automatic scans and live sampling run only while Doctor is open. A scan already started may finish after closing.
+![Native evidence card scrolled to the example command and collected output](docs/images/inspect.png)
 
-## Health semantics
+## Ask your agent—and check the result
 
-Healthy means completed checks reported no concern. Unavailable evidence, intentional skips, incomplete scans and results older than ten minutes are distinguished. A quick scan intentionally skips package integrity. A usage spike alone is not treated as a failure. Each temperature sensor is judged against its own limits: its reported critical value (warning five degrees below), else the CPU package limits for k10temp, zenpower and coretemp (95/100 °C), else the sensor's own high value, and only then a general 85/95 °C default. The summary names the sensor and the limit it crossed, and the evidence lists every sensor's limits. Sensor critical limits are never mistaken for current temperatures, and virtual compressed-memory devices are not presented as physical SMART drives.
+Click **Ask my agent** to send the selected finding, its evidence and investigation instructions to your default Omarchy agent. Doctor asks it to inspect first, report actual changes and validation, and ask before destructive work. Your agent's own permission settings enforce what it may do.
 
-Three checks count history rather than current state: application crashes (core dumps today), the boot journal (high-priority records this boot) and Omarchy shell warnings. A crash cannot be un-crashed, so these could never clear without deleting evidence. Once one of them is handed to an agent, everything up to the hand-off counts as reviewed, and the check reports only events that happen afterwards. A fix that is followed by the same kind of problem within 24 hours is marked **regressed** (shown as "came back"). The agent briefing forbids passing a check by hiding evidence: no deleting core dumps, vacuuming journals, masking units or editing Doctor.
+The repair record tracks the attempt and the returned report. **Show the work** reveals changes, supplied undo guidance, and Doctor's measured before/after evidence.
 
-The boot journal also ignores a short, exact list of known-harmless hardware notices that print on every boot or connection and that no repair can remove: the kernel's "TDX not supported by the host platform", the Wi-Fi supplicant's "multicast RX registrations are not supported", Bluetooth `avdtp_connect_cb() ... Host is down (112)` when a paired audio device is off or out of range, and the USB-C `GET_CURRENT_CAM command failed` notice. Ignored records are not counted, but they stay visible in the evidence as `[ignored: reason]` and are tallied as `journal_ignored`. A similar message that is not on the list still counts.
+![Native repair record with an illustrative agent report and an independent failing recheck](docs/images/repair.png)
 
-Graphs use timestamped real observations. A gap longer than two minutes is left unconnected. A fresh installation has no historical data; history accumulates from scans and while the panel is open. The overview retains recent observations; History reads the selected range from local storage.
+Scroll through the expanded record to see the measured checks.
 
-## Data and recovery
+![Native repair record scrolled to before/after readings and independent verification](docs/images/repair-proof.png)
 
-Data defaults to `~/.local/state/omarchy-doctor/` (or `$XDG_STATE_HOME/omarchy-doctor`). The SQLite database is mode 0600. Evidence can contain device names, service names and journal messages, so inspect an exported report before sharing it. Exports remain until manually removed.
+An agent saying “done” does not mark a repair verified. A state check must measure healthy again. Crashes and log events stay repair-unproven: a quiet log cannot prove their cause was fixed. If the agent returns no usable report, Doctor shows that honestly. A later failure reopens the concern while preserving earlier verification records. **Recheck** runs the selected diagnostic again.
 
-`installation.json` names the exact backup directory. To remove Doctor from the bar, use `omarchy plugin disable nixfred.doctor`. To restore an earlier plugin version, copy its backed-up `plugin/` contents into the installation and rescan plugins. Do not restore the whole shell configuration over unrelated later changes; its backup is a recovery reference.
+## See what changed over time
 
-## CLI and IPC
+In Issues, click **Show history**. Choose Processor, Memory, Storage or Graphics and a 1-hour, 24-hour or 7-day range. Select a saved checkup to inspect what Doctor saw at that time; use **Back to current scan** to return.
 
-```bash
-python3 doctor.py scan
-python3 doctor.py scan --deep
-python3 doctor.py history --seconds 604800
-python3 doctor.py export
-omarchy-shell nixfred.doctor open
-omarchy-shell nixfred.doctor status
-omarchy-shell nixfred.doctor scan
-omarchy-shell nixfred.doctor deepScan
-omarchy-shell nixfred.doctor show history
-omarchy-shell nixfred.doctor fix services       # hand a finding to the default agent
-omarchy-shell nixfred.doctor recheck services   # re-probe one check, settle its fix
-python3 doctor.py fix services --no-launch      # record a fix and print the agent briefing only
-python3 doctor.py fix services --no-launch --agent larry   # record a fix worked by another agent
-python3 doctor.py recheck services
-python3 doctor.py fixes
-```
+![Native history graph and saved checkups using invented example observations](docs/images/history.png)
 
-The collector emits versioned JSON-lines events. `DOCTOR_AGENT_COMMAND` overrides the launcher (default `omarchy-agent-prompt`); the briefing is passed as its last argument. `--database PATH` permits isolated testing. `doctor-checks.sh` is a compatibility launcher for this JSONL collector; the old TSV protocol is archived under `review/baseline/`.
+Graphs use recorded observations. Blank stretches mean no readings were collected; Doctor does not invent values across long gaps. Live sampling and automatic scans run while its panel is open. A scan already underway may finish after you close it.
 
-## Development and verification
+## Make it comfortable
 
-```bash
-python3 -m unittest discover -s tests -v
-omarchy plugin validate .
-shellcheck doctor-checks.sh
-python3 tests/native.py --shell-root /path/to/omarchy/shell
-```
+**Settings** lets you choose gentle movement or still drawings, and manual checks or quick checks every 2, 5 or 15 minutes. Your current selection stays in place until you change it. **Choose an agent…** opens Omarchy's existing chooser.
 
-`tests/test_benign_journal.py` pins every known-harmless journal pattern with a positive case and near-misses that must still count, and fails if a pattern is added without a case. The native test opens a temporary panel, validates variable-height navigation and unknown-state handling, captures all pages, and closes automatically. It uses fixture data labeled as such in evidence. `verification/` holds native screenshots and validation records. The browser study in `design/` is an earlier sample-data concept; the installed interface is native QML.
+![Native Settings with movement, check frequency, agent choice and retention information](docs/images/settings.png)
 
-The collector uses four bounded probe workers, explicit exit-status handling and process-group cleanup on timeouts/cancellation. Ambient Canvas drawing runs at 10 Hz only while visible, without expensive shadow blur. Separate QML components own hardware graphics, graphs, overview, evidence, history and settings.
+Left-click the bar icon to open or close Doctor; middle-click to scan; right-click for Settings. Inside the panel, `R` scans and `Esc` closes it. In Issues, `C` copies the selected command; arrows move through the focused list and Tab moves between controls.
 
-License: MIT.
+**About** gives a short explanation and links to the project and its author.
+
+![Native About page explaining Check, Understand and Verify](docs/images/about.png)
+
+## Common questions
+
+**Why is a hardware check unavailable?** Some sensors and tools are optional. `lm_sensors` improves temperature coverage; `smartmontools` adds drive-health checks. Unsupported hardware and denied permissions remain unknown. SMART checks never open a password prompt. Install optional tools only if you need that coverage.
+
+**Why does package integrity still warn?** Deep scan uses package-tool output. Missing files and access-denied paths need investigation; a warning alone does not establish that files were deleted. Read the evidence with your agent before changing packages or permissions.
+
+**Where is my data?** Observations and checkups stay locally in `~/.local/state/omarchy-doctor/` (or `$XDG_STATE_HOME/omarchy-doctor`). Readings/checkups retain up to seven days, with at most 1,000 checkups. Finding numbers and repair records persist for tracking. Each computer keeps its own state.
+
+**Can I share a report?** **Export JSON report** saves a local file. Review it first: diagnostics can contain device names, service names and log messages. Doctor does not upload them itself. Handing evidence to a cloud-backed agent is subject to that agent's data handling. Exported files remain until you remove them.
+
+**How do I remove it from the bar?** Run `omarchy plugin disable nixfred.doctor`. Source-install backup and recovery details are in the [development guide](docs/development.md#backups-and-recovery).
+
+For command-line use, agent completion details and tests, see [Development and verification](docs/development.md).
+
+Made by [Fred Nix](https://nixfred.com) · [Source on GitHub](https://github.com/nixfred/omarchy-doctor) · [MIT license](LICENSE).
