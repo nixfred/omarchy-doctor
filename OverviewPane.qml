@@ -31,7 +31,7 @@ Column {
                 Row {
                     spacing:9
                     Rectangle {width:7;height:7;radius:4;color:host.stateColor(host.overallState);anchors.verticalCenter:parent.verticalCenter}
-                    Text {font.family:Style.font.family;text:host.scanning?"SCAN IN PROGRESS":host.complete?"SCAN COMPLETE":"EVIDENCE FIRST";color:host.dim;font.pixelSize:11;font.letterSpacing:1.6}
+                    Text {objectName:"doctor-overview-readiness";font.family:Style.font.family;text:host.scanning?"SCAN IN PROGRESS":host.overallState==="unknown"?"VERIFICATION INCOMPLETE":host.complete?"CHECKUP FINISHED":"EVIDENCE FIRST";color:host.dim;font.pixelSize:11;font.letterSpacing:1.6}
                 }
                 Text {width:parent.width;text:host.headline;color:host.ink;font.pixelSize:28;font.family:Style.font.family;wrapMode:Text.WordWrap;lineHeight:1.1}
                 Text {font.family:Style.font.family;width:parent.width;text:host.summary;maximumLineCount:4;elide:Text.ElideRight;color:host.dim;font.pixelSize:13;wrapMode:Text.WordWrap;lineHeight:1.3}
@@ -102,10 +102,10 @@ Column {
             Column {
                 x:19;y:17;width:parent.width-38;spacing:10
                 Text {font.family:Style.font.family;text:"03 / FIRST THING TO LOOK AT";color:host.dim;font.pixelSize:11;font.letterSpacing:1.5}
-                Text {font.family:Style.font.family;width:parent.width;text:host.priority?host.priority.title:host.results.length?"No known actionable problems in checked scope":"Run a scan to establish a baseline";color:host.ink;font.pixelSize:14;elide:Text.ElideRight}
-                Text {font.family:Style.font.family;width:parent.width;text:host.priority?host.priority.summary:"Doctor will show the evidence behind every result.";color:host.dim;font.pixelSize:12;wrapMode:Text.WordWrap;maximumLineCount:2;elide:Text.ElideRight}
+                Text {font.family:Style.font.family;width:parent.width;text:host.priority?host.priority.title:host.overallState==="unknown"?"Health is not verified yet":host.results.length?"Checked scope is healthy":"Run a scan to establish a baseline";color:host.ink;font.pixelSize:14;elide:Text.ElideRight}
+                Text {font.family:Style.font.family;width:parent.width;text:host.priority?host.priority.summary:host.overallState==="unknown"?host.indicator.reason:"Doctor will show the evidence behind every result.";color:host.dim;font.pixelSize:12;wrapMode:Text.WordWrap;maximumLineCount:2;elide:Text.ElideRight}
             }
-            MouseArea {anchors.fill:parent;cursorShape:Qt.PointingHandCursor;onClicked:host.showFindings(host.priority?host.priority.id:"")}
+            MouseArea {anchors.fill:parent;cursorShape:Qt.PointingHandCursor;onClicked:{if(host.overallState==="unknown")host.routeConcern();else host.showFindings(host.priority?host.priority.id:"")}}
         }
         Rectangle {
             width:(parent.width-(parent.columns-1)*14)/parent.columns;height:119;radius:12;color:host.card;border.color:host.edge;clip:true

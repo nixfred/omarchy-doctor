@@ -78,6 +78,7 @@ The unit suite uses temporary databases, mocked probes/launchers and a fixture p
 
 ```bash
 export OMARCHY_PATH=/path/to/omarchy
+python3 tests/qml_gray.py
 python3 tests/qml_events.py
 python3 tests/qml_novice.py
 python3 tests/qml_packages.py
@@ -132,3 +133,5 @@ Gray clicks now open Finish verification with exact gaps, source evidence, curso
 133 Python tests cover continuation/EOF, timeout, cancellation, missing cursors, malformed records, restart/boot changes, fixed elevated command, stale evidence and adaptive output bounds. Native fixtures exercise the real bar/button handler → actual Doctor CLI → temporary SQLite with fake journal/terminal dispatcher, plus confirmation cancellation and five viewport sizes at three scales. Fixture popups remain explicitly unmapped; authentication, real agents and repair probes are excluded.
 
 The final runtime adds the same complete-read mechanism for Boot journal checks with invalid message fields. Scope remains priority 0–3/current boot/seven days, with all fields requested and original benign/crash-duplicate rules retained. 135 unit tests include exact scope/policy and invalid-field non-completion; no real collection or authentication is performed during activation.
+
+Gray-state UI copy leads with the number of incomplete checks and offers Finish verification from an empty Needs fixing view. A completed boot-log read uses the log-coverage predicate; optional skipped package checks do not request authentication. `tests/qml_gray.py` exercises these states and navigation using closed native synthetic fixtures.

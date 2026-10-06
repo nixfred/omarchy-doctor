@@ -82,7 +82,11 @@ Column {
                 Text{text:(root.findingPage+1)+" / "+root.findingPages;color:host.dim;font.family:Style.font.family;font.pixelSize:12;height:34;verticalAlignment:Text.AlignVCenter}
                 DoctorAction{text:"Next";enabled:root.findingPage+1<root.findingPages;ink:host.ink;accent:host.good;onClicked:root.pageFindings(1)}
             }
-            Text{objectName:"doctor-empty-findings";font.family:Style.font.family;anchors.centerIn:parent;width:Math.max(0,parent.width-32);visible:!host.filtered.length;text:host.scanning?"Checks will appear as they finish…":host.filter==="needs_fix"?Model.issueSummary(host.viewRows||host.shownRows||host.results,host.complete,!!host.archived,host.now):"No findings in this view.";color:host.dim;font.pixelSize:13;wrapMode:Text.WordWrap;horizontalAlignment:Text.AlignHCenter;textFormat:Text.PlainText}
+            Column {
+                anchors.centerIn:parent;width:Math.max(0,parent.width-32);visible:!host.filtered.length;spacing:12
+                Text{objectName:"doctor-empty-findings";font.family:Style.font.family;width:parent.width;text:host.scanning?"Checks will appear as they finish…":host.filter==="needs_fix"?Model.issueSummary(host.viewRows||host.shownRows||host.results,host.complete,!!host.archived,host.now):"No findings in this view.";color:host.dim;font.pixelSize:13;wrapMode:Text.WordWrap;horizontalAlignment:Text.AlignHCenter;textFormat:Text.PlainText}
+                DoctorAction{objectName:"doctor-empty-verification";anchors.horizontalCenter:parent.horizontalCenter;text:"Finish verification";visible:host.filter==="needs_fix"&&!host.archived&&host.overallState==="unknown";ink:host.ink;accent:host.unknown;onClicked:host.routeConcern()}
+            }
         }
         Rectangle {
             width:root.wide?(parent.width-16)*0.58:parent.width;height:root.cardHeight;radius:12;color:host.card;border.color:host.edge

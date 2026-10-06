@@ -159,7 +159,7 @@ function indicator(rows,complete,stale,scanning,now) {
     var major=faults.find(function(r){return r.state==="bad"||r.severity==="critical"||r.severity==="high"})
     if(major)return verdict("bad","Red · current actionable fault",number(major)+" · "+major.title+": "+major.summary,major,"needs_fix")
     if(faults.length)return verdict("warn","Yellow · current actionable warning",number(faults[0])+" · "+faults[0].title+": "+faults[0].summary,faults[0],"needs_fix")
-    if(coverage.length)return verdict("unknown","Gray · coverage incomplete","No known actionable problems in checked scope. "+coverage.length+" check(s) incomplete. "+coverage.map(function(r){return number(r)+" · "+r.title+": "+r.summary+(oldMeasurement(r,now)?" Last measurement is old; recheck for current evidence.":"")}).join("\n"),coverage[0],"investigate")
+    if(coverage.length)return verdict("unknown","Gray · coverage incomplete","Health is not verified yet. "+coverage.length+" check(s) incomplete. "+coverage.map(function(r){return number(r)+" · "+r.title+": "+r.summary+(oldMeasurement(r,now)?" Last measurement is old; recheck for current evidence.":"")}).join("\n"),coverage[0],"investigate")
     if(review.length)return verdict("unknown","Gray · event review","No repair is established. "+review.length+" current event record(s) need review; a recorded crash is not proof the process is still failing.",review[0],"investigate")
     if(scanning||!complete)return verdict("unknown","Gray · checks unfinished",scanning?"Doctor is checking. Healthy coverage is not yet established.":"The saved checkup is incomplete. Run Doctor for current evidence.",null,"investigate")
     if(stale)return verdict("unknown","Gray · checkup is old","The last complete checkup is over ten minutes old. Run Doctor for current evidence.",null,"investigate")
@@ -169,12 +169,23 @@ function indicator(rows,complete,stale,scanning,now) {
     return verdict("ok","Green · checked scope healthy","No known actionable problems in checked scope. Completed supported checks are fresh. Optional skipped checks, log notes and past events remain visible.",null,"all")
 }
 
+function healthHeadline(verdict,scanning,hasRows) {
+    if(scanning)return "Checking your desktop…"
+    if(!hasRows)return "Health is not verified yet."
+    if(verdict.state==="bad"||verdict.state==="warn")return "Let's look at "+verdict.actionable+" actionable concern(s)."
+    if(verdict.state==="ok")return "Checked scope is healthy."
+    if(verdict.coverage)return verdict.coverage+(verdict.coverage===1?" check still needs verification.":" checks still need verification.")
+    if(verdict.review)return verdict.review+(verdict.review===1?" event record needs review.":" event records need review.")
+    return "Health is not verified yet."
+}
+
 function issueSummary(rows,complete,archived,now) {
     var fs=findingRows(rows||[]),needs=fs.filter(function(r){return archived?r.needs_fix===true:actionable(r,now)}).length
     var gaps=fs.filter(function(r){return r.state==="unknown"||r.resolution==="unverified"}).length
     var old=!!now&&fs.some(function(r){return !r.activity&&r.timestamp&&now-r.timestamp>600&&r.state!=="skipped"})
     var scope=archived?"At this saved checkup: ":old?"Measurements are old; run Doctor for current evidence. Last saved checkup: ":""
     if(!complete&&!archived)return "Checks are unfinished. Run Doctor before deciding whether a repair is needed."
+    if(gaps&&!needs&&!archived)return scope+"Health is not verified: "+gaps+(gaps===1?" check needs verification.":" checks need verification.")+" Open Verification to finish coverage. No actionable repairs were identified in completed checks; Issues retains the evidence."
     return scope+(needs?needs+(archived||old?(needs===1?" finding needed attention.":" findings needed attention."):(needs===1?" finding still needs action.":" findings still need action.")):archived||old?"No repairs were identified.":"No known actionable problems in checked scope.")+(gaps?" "+gaps+(gaps===1?" check needs verification.":" checks need verification.")+" Open Verification to finish coverage; Issues retains the evidence.":" Completed supported checks have no reported coverage gaps. Log notes and past events remain visible.")
 }
 function nextAction(row) {
