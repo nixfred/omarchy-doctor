@@ -9,6 +9,8 @@ class Journal:
   self.rows=[dict(__CURSOR='c%d'%n,__REALTIME_TIMESTAMP=str(int((time.time()-20+n/1000)*1e6)),_BOOT_ID=BOOT,_COMM='quickshell',PRIORITY='6',MESSAGE=list(('\x1b[33mWARN pi.audio: TypeError: fixture\x1b[0m').encode())) for n in range(count)];self.calls=[];self.failure=None;self.drop=False
  def __call__(self,args,**kw):
   self.calls.append((args,kw))
+  if any(x.startswith("--cursor=") for x in args) and any(x.startswith("--since=") for x in args):
+   return dict(ok=False,code=1,stdout="",stderr="Please specify only one of --since= and --cursor=.",output="Please specify only one of --since= and --cursor=.",command="fixture journal")
   if self.failure:return self.failure
   cursor=next((x.split('=',1)[1] for x in args if x.startswith('--cursor=')),None)
   start=next((n for n,e in enumerate(self.rows) if e['__CURSOR']==cursor),0) if cursor else 0
@@ -27,6 +29,20 @@ class Verification(unittest.TestCase):
   j=Journal();r,a=self.step(j,max_pages=1);self.assertEqual(a['phase'],'collecting');self.assertEqual(a['raw_entries'],100);self.assertEqual(r['state'],'unknown');ident=r['findings'][0]['finding_number']
   r,b=self.step(j);self.assertEqual(b['phase'],'complete');self.assertEqual(b['raw_entries'],205);self.assertEqual(b['pages'],3);self.assertEqual(r['findings'][0]['event_count'],205);self.assertEqual(r['findings'][0]['finding_number'],ident);self.assertFalse(r['needs_fix']);self.assertTrue(r['coverage']['complete'])
   self.assertIn('--cursor=c99',j.calls[1][0]);self.assertIn('--lines=+101',j.calls[1][0]);self.assertTrue(all('--until=' in ' '.join(c[0]) for c in j.calls));self.assertFalse(any('-n 500' in ' '.join(c[0]) for c in j.calls))
+ def test_cursor_pages_keep_fixed_scope_without_conflicting_since(self):
+  j=Journal();r,first=self.step(j,max_pages=1);r,last=self.step(j)
+  self.assertEqual(last['phase'],'complete');self.assertEqual(last['raw_entries'],205)
+  self.assertTrue(any(x.startswith('--since=') for x in j.calls[0][0]))
+  for args,kw in j.calls[1:]:
+   self.assertTrue(any(x.startswith('--cursor=') for x in args));self.assertFalse(any(x.startswith('--since=') for x in args))
+   self.assertIn('--boot='+BOOT,args);self.assertIn('--until=@%.6f'%first['until'],args)
+  before=len(j.calls);r,last=self.step(j);self.assertEqual(last['phase'],'complete')
+  self.assertIn('--cursor=c204',j.calls[before][0]);self.assertFalse(any(x.startswith('--since=') for x in j.calls[before][0]))
+ def test_cursor_resume_still_rejects_records_outside_fixed_snapshot(self):
+  j=Journal(150);r,first=self.step(j,max_pages=1)
+  j.rows[100]['__REALTIME_TIMESTAMP']=str(int((first['until']+1)*1e6))
+  r,last=self.step(j);self.assertEqual(last['phase'],'blocked');self.assertTrue(last['requires_restart']);self.assertEqual(r['state'],'unknown')
+  self.assertIn('Entry outside the requested snapshot',last['error'])
  def test_exact_page_requires_confirmed_next_page(self):
   j=Journal(100);r,a=self.step(j,max_pages=1);self.assertEqual(a['phase'],'collecting');r,a=self.step(j);self.assertEqual(a['phase'],'complete');self.assertEqual(a['raw_entries'],100)
  def test_incremental_never_replays_complete_baseline(self):

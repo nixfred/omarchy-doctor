@@ -1278,7 +1278,11 @@ def complete_shell(database,run=None,restart=False,max_pages=20,budget_seconds=1
             if STOP.is_set():job["phase"]="paused";job["error"]="Cancelled; resume from the last committed cursor.";break
             if time.monotonic()-began>=budget_seconds:break
             cmd=["journalctl",*(["--user"] if check=="shell" else ["--priority=3"]),"--boot="+boot,"--since=@%.6f"%job["since"],"--until=@%.6f"%job["until"],"--no-pager","--all","-o","json","--output-fields="+JOURNAL_FIELDS,"--lines=+"+str(job.get("page_size",100)+(1 if job["cursor"] else 0))]
-            if job["cursor"]:cmd.append("--cursor="+job["cursor"])
+            # journalctl accepts only one starting position. Cursor pages keep the
+            # fixed boot/end scope; every record still validates against since/until.
+            if job["cursor"]:
+                cmd=[arg for arg in cmd if not arg.startswith("--since=")]
+                cmd.append("--cursor="+job["cursor"])
             cmd+=(SHELL_MATCHES if check=="shell" else []);job["command"]=shlex.join(cmd)
             probe=run(cmd,timeout=min(5,max(.1,budget_seconds-(time.monotonic()-began))))
             if len(probe.get("stdout",""))>=1024*1024 and job.get("page_size",100)>1:
