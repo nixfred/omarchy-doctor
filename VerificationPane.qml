@@ -37,7 +37,7 @@ Column {
         }
     }
     Repeater {
-        model:host.shownRows.filter(function(r){return r.id!=="shell"&&r.id!=="packages"&&r.id!=="journal"&&(r.state==="unknown"||r.state!=="skipped"&&!r.activity&&Model.oldMeasurement(r,host.now))})
+        model:host.shownRows.filter(function(r){return r.id!=="shell"&&r.id!=="packages"&&r.id!=="journal"&&r.id!=="drives"&&(r.state==="unknown"||r.state!=="skipped"&&!r.activity&&Model.oldMeasurement(r,host.now))})
         Rectangle {width:pane.width;height:other.implicitHeight+28;radius:12;color:host.card;border.color:host.edge
             Column {id:other;x:14;y:14;width:parent.width-28;spacing:8
                 Text {textFormat:Text.PlainText;width:parent.width;wrapMode:Text.WordWrap;text:Model.number(modelData)+" · "+modelData.title;color:host.ink;font.family:Style.font.family;font.pixelSize:16;font.bold:true}
@@ -46,6 +46,33 @@ Column {
                     DoctorAction {text:"Measure again";visible:!modelData.limited;ink:host.ink;enabled:!host.scanning&&!host.verifying;onClicked:host.recheck(modelData.id)}
                     DoctorAction {text:"View evidence and source";ink:host.ink;onClicked:host.showFindings(modelData.id)}
                 }
+            }
+        }
+    }
+    Rectangle {
+        id: driveCard
+        property var measured:pane.row("drives")
+        property var job:host.verificationJob("drives")
+        property bool verified:!!measured&&!Model.oldMeasurement(measured,host.now)&&(!!measured.metrics&&measured.metrics.smart_complete===true||measured.state!=="unknown"&&!measured.coverage_incomplete)
+        visible:!!measured&&measured.state!=="skipped"||!!job
+        width:pane.width;height:driveBody.implicitHeight+32;radius:12;color:host.card;border.color:host.edge
+        Column {id:driveBody;x:16;y:16;width:parent.width-32;spacing:10
+            Text {objectName:"doctor-drives-heading";textFormat:Text.PlainText;width:parent.width;wrapMode:Text.WordWrap;text:(driveCard.measured?Model.number(driveCard.measured):"Not measured")+" · Read physical drive SMART health";color:host.ink;font.family:Style.font.family;font.pixelSize:17;font.bold:true}
+            Text {objectName:"doctor-smart-explanation";textFormat:Text.PlainText;width:parent.width;wrapMode:Text.WordWrap;text:driveCard.verified?(driveCard.measured.state==="bad"?"SMART measured an actual drive fault. Open its evidence; authenticating again does not repair it.":"Completed and fresh. Evidence retains its original measurement time."):"An ordinary retry cannot finish inaccessible or old SMART coverage. Review the discovered devices and exact read-only commands below, then authenticate in the normal terminal. Only packaged smartctl gets root; Doctor stays unprivileged. No tests, writes, firmware or permissions change.";color:driveCard.verified&&driveCard.measured.state!=="bad"?host.good:host.dim;font.family:Style.font.family;font.pixelSize:14}
+            Text {objectName:"doctor-smart-progress";textFormat:Text.PlainText;width:parent.width;wrapMode:Text.WordWrap;text:!driveCard.job?"Not started.":pane.busy(driveCard.job)?"Use the SMART verification terminal to authenticate. Ctrl+C cancels; Doctor awaits measured evidence.":driveCard.job.phase+(driveCard.job.error?" · "+driveCard.job.error:"");color:host.ink;font.family:Style.font.family;font.pixelSize:13}
+            Flow {width:parent.width;spacing:8
+                DoctorAction {objectName:"doctor-verify-smart";text:"Read SMART health";primary:!driveCard.verified;ink:host.ink;accent:host.good;enabled:!host.scanning&&!host.verifying&&!pane.busy(driveCard.job)&&!host.smartPlanBusy;onClicked:host.requestSmartVerification()}
+                DoctorAction {text:"View evidence";ink:host.ink;onClicked:host.showFindings("drives")}
+            }
+        }
+    }
+    Rectangle {visible:host.smartConfirmation;width:parent.width;height:smartApproval.implicitHeight+32;radius:12;color:host.card;border.color:host.warning
+        Column {id:smartApproval;x:16;y:16;width:parent.width-32;spacing:10
+            Text {textFormat:Text.PlainText;width:parent.width;wrapMode:Text.WordWrap;text:"Read SMART health on these devices? The normal terminal handles authentication. Device identity is checked before and after measurement.";color:host.ink;font.family:Style.font.family;font.pixelSize:14}
+            Text {objectName:"doctor-smart-commands";textFormat:Text.PlainText;width:parent.width;wrapMode:Text.WrapAnywhere;text:host.smartPlanBusy?"Discovering physical devices…":host.smartPlan.error?host.smartPlan.error:host.smartPlan.commands.length?host.smartPlan.commands.join("\n"):"No confirmed device commands. No privileged read will start.";color:host.ink;font.family:Style.font.family;font.pixelSize:13}
+            Flow {width:parent.width;spacing:8
+                DoctorAction {objectName:"doctor-confirm-smart-verification";text:"Open verification terminal";primary:true;ink:host.ink;accent:host.good;enabled:!host.scanning&&!host.verifying&&!host.smartPlanBusy&&!host.smartPlan.error&&host.smartPlan.commands.length>0;onClicked:host.startSmartVerification()}
+                DoctorAction {objectName:"doctor-cancel-smart-verification";text:"Cancel";ink:host.ink;onClicked:host.smartConfirmation=false}
             }
         }
     }

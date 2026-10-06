@@ -16,9 +16,12 @@ Panel {
     property string version: "1.6.0"
     property string page: "overview"
     property var verificationJobs: []
-    readonly property bool verifying: verifier.running
+    readonly property bool verifying: verifier.running || smartStarter.running
     property string verificationCheck: ""
     property bool packageConfirmation: false
+    property bool smartConfirmation: false
+    property var smartPlan: ({inventory:[],commands:[],error:""})
+    readonly property bool smartPlanBusy: smartPlanner.running
     property var results: []
     property var metrics: ({})
     property var samples: []
@@ -129,7 +132,7 @@ Panel {
     function showFindings(key) {archived=null;filter="all";selectedId=key;page="issues"}
     function navigate(key) {showWork=false;if(key==="settings")readAgent();page=["findings","history","fixes"].indexOf(key)>=0?"issues":key;outer.reset();if(page==="issues"||page==="verification")loadHistory();if(key==="history")filter="historical"}
     function refresh(deep) {
-        if(collector.running||verifier.running||packageStarter.running||testMode)return
+        if(collector.running||verifier.running||packageStarter.running||smartStarter.running||testMode)return
         results=[];complete=false;receivedEnd=false;protocolError=false;scanning=true;completed=0;scanError="";archived=null;changes=[]
         activity="Starting "+(deep?"deep":"quick")+" scan";collector.command=args("scan",deep?["--deep"]:[]);collector.running=true;deadline.restart()
     }
@@ -162,6 +165,8 @@ Panel {
     function verifyShell(restart){if(verifier.running||collector.running||rechecker.running||testMode)return;verificationCheck="shell";notice="Reading a fixed journal snapshot…";verifier.command=args(restart?"restart-shell-verification":"verify-shell");verifier.running=true}
     function verifyJournal(restart){if(verifier.running||collector.running||rechecker.running||testMode)return;verificationCheck="journal";notice="Reading a fixed boot journal snapshot…";verifier.command=args(restart?"restart-journal-verification":"verify-journal");verifier.running=true}
     function cancelVerification(){if(verifier.running){notice="Cancelling at the last committed page…";verifier.signal(15)}}
+    function requestSmartVerification(){smartConfirmation=true;smartPlan={inventory:[],commands:[],error:""};if(testMode)return;smartPlanner.command=args("smart-plan");smartPlanner.running=true}
+    function startSmartVerification(){if(scanning||verifying||testMode||smartPlanBusy||smartPlan.error||!smartPlan.commands.length)return;smartConfirmation=false;smartStarter.command=args("start-smart-verification",["--devices-json",JSON.stringify(smartPlan.inventory)]);smartStarter.running=true;notice="Opening the normal SMART verification terminal. Authenticate there; Ctrl+C cancels."}
     function requestPackageVerification(){packageConfirmation=true}
     function startPackageVerification(){packageConfirmation=false;if(packageStarter.running||testMode)return;packageStarter.command=args("start-package-verification");packageStarter.running=true;notice="Opening the normal verification terminal. Authenticate there; Ctrl+C cancels."}
     function verificationTestItem(){return testMode&&page==="verification"?pageLoader.item:null}
@@ -222,7 +227,8 @@ Panel {
             var fixed=(e.fixes||[]).filter(function(f){return f.status==="fixed"}).length
             notice=fixed?"Fixed. "+e.summary:e.state==="ok"?"Healthy on recheck. "+e.summary:"Still "+Model.labels[e.state].toLowerCase()+" on recheck. "+e.summary
             loadHistory()
-        } else if(e.type==="verification_progress"){updateVerification(e.job)}
+        } else if(e.type==="smart_plan"){smartPlan=e.plan}
+        else if(e.type==="verification_progress"){updateVerification(e.job)}
         else if(e.type==="verification_end"){updateVerification(e.job);notice=e.job.phase==="complete"?"Verification completed. Warning notes and history remain visible.":"Verification is unfinished. "+(e.job.error||"Continue from the saved cursor below.");loadHistory()}
         else if(e.type==="assessment"){notice="Assessment saved. It does not mark a repair verified.";loadHistory()}
         else if(e.type==="export")notice="Saved report: "+e.path
@@ -283,6 +289,8 @@ Panel {
     Process {id:exporter;stdout:SplitParser{onRead:function(line){root.ingest(line,"export")}} onExited:function(code){if(code!==0)root.notice="Report export failed."}}
     Process {id:copier;onExited:function(code){root.notice=code===0?"Diagnostic command copied. Nothing was executed.":"Clipboard copy failed; the command is visible in Evidence."}}
     Process{id:verifier;stdout:SplitParser{onRead:function(line){root.ingest(line,"recheck")}} stderr:StdioCollector{id:verificationErrors} onExited:function(code){root.verificationCheck="";if(code!==0)root.notice="Verification interrupted; full coverage is unproven. "+String(verificationErrors.text).slice(0,160);root.loadHistory()}}
+    Process{id:smartPlanner;stdout:SplitParser{onRead:function(line){root.ingest(line,"verification")}} stderr:StdioCollector{id:smartPlanErrors} onExited:function(code){if(code!==0)root.smartPlan={inventory:[],commands:[],error:"Device discovery failed. "+String(smartPlanErrors.text).slice(0,300)}}}
+    Process{id:smartStarter;stdout:SplitParser{onRead:function(line){root.ingest(line,"verification")}} onExited:root.loadHistory()}
     Process{id:packageStarter;stdout:SplitParser{onRead:function(line){root.ingest(line,"verification")}} onExited:root.loadHistory()}
     Timer{interval:2000;repeat:true;running:root.opened&&root.page==="verification"&&root.verificationJobs.some(function(j){return (j.phase==="awaiting_auth"||j.phase==="verifying")&&root.now-j.updated<180});onTriggered:root.loadHistory()}
     IpcHandler {

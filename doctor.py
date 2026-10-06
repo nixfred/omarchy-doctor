@@ -16,6 +16,7 @@ import shlex
 import shutil
 import signal
 import socket
+import stat
 import sys
 import sqlite3
 import subprocess
@@ -426,6 +427,19 @@ class Probes:
             return unavailable("storage", "disk", "Root filesystem", {"output": str(exc), "command": "df -h /"})
 
     def drives(self):
+        if self.database:
+            saved=verification_job(self.database,"drives")
+            if saved and saved.get("row"):
+                row=json.loads(json.dumps(saved["row"]))
+                try:same=saved.get("inventory")==smart_inventory(self.run)
+                except (ValueError,OSError):same=False
+                if saved.get("phase")=="complete" and same and time.time()-row["timestamp"]<=600:
+                    row["coverage_note"]="SMART measured at "+dt.datetime.fromtimestamp(row["timestamp"]).isoformat()+". Reusing still-fresh evidence; no new elevated command was run."
+                    return row
+                row.update(state="unknown",needs_fix=False,verification_expired=True,coverage_incomplete=True,requires_smart_verification=True)
+                row["metrics"]["smart_complete"]=False
+                row["summary"]="SMART coverage is old, the drive inventory changed, or verification did not finish. Use Read SMART health and authenticate in its terminal; an ordinary retry cannot renew protected evidence."
+                return row
         p = self.run(["lsblk", "-J", "-d", "-p", "-o", "NAME,TYPE,MODEL"])
         if not p["ok"]:
             return unavailable("drives", "disk", "Physical drive health", p)
@@ -442,14 +456,6 @@ class Probes:
             if not re.fullmatch(r"/dev/[A-Za-z0-9_.-]+", name):
                 unknown.append(name); continue
             q = self.run(["smartctl", "-j", "-H", name], timeout=4, allowed=tuple(range(256)))
-            # The kernel refuses the NVMe SMART log to non-root even with device access, so retry once
-            # through sudo -n: it uses an existing passwordless rule or fails at once, never prompting.
-            if q["code"] & 2 and "Permission denied" in q["output"]:
-                s = self.run(["sudo", "-n", "smartctl", "-j", "-H", name], timeout=6, allowed=tuple(range(256)))
-                if s["code"] & 1:
-                    q["output"] += "\nsudo -n smartctl: " + (s["output"].strip().splitlines() or ["refused"])[-1]
-                else:
-                    q = s
             try:
                 data = json.loads(q.get("stdout", q["output"]))
             except (ValueError, TypeError):
@@ -466,8 +472,12 @@ class Probes:
         summary = "SMART failure: " + ", ".join(failed) if failed else "Drive health unavailable: " + ", ".join(unknown) if unknown else f"SMART passed on all {len(devices)} inspected physical drives."
         if failed and unknown:
             summary += "; unavailable: " + ", ".join(unknown)
-        return result("drives", "disk", "Physical drive health", "bad" if failed else "unknown" if unknown else "ok", summary,
+        row = result("drives", "disk", "Physical drive health", "bad" if failed else "unknown" if unknown else "ok", summary,
             "\n\n".join(details), "lsblk -o NAME,TYPE,MODEL,MOUNTPOINTS", {"drives_checked": len(devices), "drives_unknown": len(unknown)})
+        if unknown:
+            row.update(coverage_incomplete=True,requires_smart_verification=True)
+            row["summary"]+=". Use Read SMART health in Verification; review the exact devices and authenticate in the normal terminal."
+        return row
 
     def gpu(self):
         p = self.run(["nvidia-smi", "--query-gpu=name,temperature.gpu,utilization.gpu,memory.used,memory.total,driver_version", "--format=csv,noheader,nounits"], timeout=4)
@@ -1372,7 +1382,7 @@ def verification_jobs(h):
     out=[]
     for (payload,) in h.db.execute("SELECT payload FROM verification_jobs").fetchall():
         job=json.loads(payload)
-        if job["check"]=="packages" and job["phase"] in ("awaiting_auth","verifying") and not package_job_active(job):
+        if job["check"] in ("packages","drives") and job["phase"] in ("awaiting_auth","verifying") and not package_job_active(job):
             job["phase"]="interrupted";job["error"]="Verification terminal closed or did not start; no completed measurement returned. Open the verification terminal again."
             put_job(h,job)
         out.append(compact_job(job))
@@ -1406,6 +1416,122 @@ def verify_packages(database,token,run=None):
         job["phase"]="complete" if row.get("metrics",{}).get("integrity_complete") else "blocked"
         job["error"]="" if job["phase"]=="complete" else "Authentication cancelled/refused, timeout, or incomplete output; full verification is unproven."
         row["verification"]=compact_job(job);job["row"]=row;job["inventory"]=after_inventory;put_job(h,job);save_verification_row(h,row,"protected_package_verification")
+        return row,compact_job(job)
+    finally:h.close()
+
+def smart_inventory(run=None):
+    probe=(run or Runner())(["/usr/bin/lsblk","-J","-b","-d","-p","-o","NAME,TYPE,MAJ:MIN,SERIAL,WWN,SIZE"])
+    if not probe["ok"]:raise ValueError("Physical drive discovery is unavailable; no privileged read started.")
+    try:devices=json.loads(probe.get("stdout",probe["output"]))["blockdevices"]
+    except (ValueError,KeyError,TypeError):raise ValueError("Invalid physical drive inventory; no privileged read started.")
+    if not isinstance(devices,list):raise ValueError("Invalid physical drive list.")
+    found=[]
+    for device in devices:
+        if not isinstance(device,dict):raise ValueError("Invalid drive entry.")
+        if device.get("type")!="disk" or re.match(r"/dev/(zram|loop|ram)\d",str(device.get("name",""))):continue
+        path=device.get("name","")
+        if not re.fullmatch(r"/dev/[A-Za-z0-9_.-]+",path) or str(Path(path).resolve())!=path:raise ValueError("Drive path is not a canonical /dev block device.")
+        info=os.stat(path)
+        identity=str(os.major(info.st_rdev))+":"+str(os.minor(info.st_rdev))
+        if not stat.S_ISBLK(info.st_mode) or identity!=device.get("maj:min"):raise ValueError("Drive identity does not match discovery.")
+        found.append(dict(path=path,major_minor=identity,node_inode=info.st_ino,serial=str(device.get("serial") or "")[:256],wwn=str(device.get("wwn") or "")[:256],size=device.get("size")))
+    if not found or len(found)>16:raise ValueError("SMART verification requires 1–16 discovered physical block devices.")
+    if len({item["path"] for item in found})!=len(found):raise ValueError("Duplicate physical drive identity.")
+    return sorted(found,key=lambda item:item["path"])
+
+def smart_read_command(path):
+    if not isinstance(path,str) or not re.fullmatch(r"/dev/[A-Za-z0-9_.-]+",path):raise ValueError("Invalid SMART device path.")
+    return ["/usr/bin/sudo","/usr/bin/smartctl","-j","-H",path]
+
+def smart_plan(run=None):
+    try:
+        inventory=smart_inventory(run)
+        return dict(inventory=inventory,commands=[shlex.join(smart_read_command(d["path"])) for d in inventory],error="")
+    except (ValueError,OSError) as exc:return dict(inventory=[],commands=[],error=str(exc))
+
+class AuthenticatedSmartReader:
+    """Keep the user's controlling terminal; elevate only the fixed packaged reader."""
+    def __call__(self,args,timeout=120,allowed=tuple(range(256))):
+        command=shlex.join(args)
+        try:
+            if len(args)!=5 or args!=smart_read_command(args[-1]):raise ValueError("Only the fixed SMART health command is permitted.")
+            if os.geteuid()==0 or os.geteuid()!=os.getuid():raise ValueError("Doctor must run as the ordinary desktop user.")
+            if not sys.stdin.isatty():raise ValueError("Open the normal verification terminal to authenticate; no terminal is attached.")
+            for binary in args[:2]:
+                info=os.stat(binary)
+                if info.st_uid!=0 or not stat.S_ISREG(info.st_mode) or info.st_mode&0o022:raise ValueError("The fixed sudo/smartctl reader must be root-owned and not group/world writable.")
+            with tempfile.TemporaryFile() as out,tempfile.TemporaryFile() as err:
+                proc=subprocess.Popen(args,stdin=None,stdout=out,stderr=err,start_new_session=False,env={**os.environ,"LC_ALL":"C"})
+                try:code=proc.wait(timeout=timeout)
+                except subprocess.TimeoutExpired:
+                    proc.terminate()
+                    try:proc.wait(timeout=2)
+                    except subprocess.TimeoutExpired:proc.kill();proc.wait()
+                    return dict(ok=False,code=124,stdout="",stderr="",output="SMART authentication/read timed out; coverage remains unverified.",command=command)
+                out.seek(0);err.seek(0)
+                data=out.read(1024*1024+1);errors=err.read(MAX_OUTPUT+1)
+                truncated=len(data)>1024*1024 or len(errors)>MAX_OUTPUT
+                stdout=data[:1024*1024].decode("utf-8","replace");stderr=errors[:MAX_OUTPUT].decode("utf-8","replace")
+                return dict(ok=code in allowed and not truncated,code=code,stdout=stdout,stderr=stderr,output=(stdout+"\n"+stderr)[:MAX_OUTPUT],truncated=truncated,command=command)
+        except (OSError,ValueError) as exc:return dict(ok=False,code=126,stdout="",stderr="",output=str(exc),command=command)
+
+def start_smart_verification(database,expected=None,launch=None,run=None):
+    h=History(database)
+    try:
+        h.db.execute("BEGIN IMMEDIATE")
+        old=verification_job(database,"drives")
+        if package_job_active(old):return compact_job(old)
+        job=dict(check="drives",id=uuid.uuid4().hex,phase="awaiting_auth",started=time.time(),error="",pid=0,scope="User-triggered read-only SMART health; only packaged smartctl is elevated. No tests, writes, firmware, package or permission changes.")
+        try:
+            inventory=smart_inventory(run)
+            if expected is not None and expected!=inventory:raise ValueError("Drive inventory changed after confirmation. Review the current devices before authenticating.")
+            job["inventory"]=inventory;job["command"]="; ".join(shlex.join(smart_read_command(d["path"])) for d in inventory)
+            put_job(h,job)
+            command=["omarchy-launch-tui","--app-id=org.omarchy.doctor-smart-verification",sys.executable,"-u",str(Path(__file__).resolve()),"verify-smart",job["id"],"--database",str(database)]
+            (launch or (lambda args:subprocess.Popen(args,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)))(command)
+        except (ValueError,OSError) as exc:job["phase"]="blocked";job["error"]=str(exc);put_job(h,job)
+        return compact_job(job)
+    finally:h.close()
+
+def verify_smart(database,token,run=None,inventory_run=None):
+    h=History(database)
+    try:
+        h.db.execute("BEGIN IMMEDIATE")
+        job=verification_job(database,"drives")
+        if not job or job["id"]!=token or job["phase"]!="awaiting_auth":raise ValueError("No matching user-triggered SMART verification.")
+        job["phase"]="verifying";job["pid"]=os.getpid();put_job(h,job)
+        evidence=[];failures=[];bad=[];checked=0;complete=False
+        try:
+            inventory=smart_inventory(inventory_run)
+            if inventory!=job.get("inventory"):raise ValueError("Drive inventory changed before authentication; no privileged read started.")
+            for device in inventory:
+                if STOP.is_set():failures.append((device["path"],"canceled","User canceled verification."));break
+                command=smart_read_command(device["path"])
+                probe=(run or AuthenticatedSmartReader())(command,timeout=120,allowed=tuple(range(256)))
+                checked+=1;evidence.append(device["path"]+"\n"+probe.get("output",""))
+                try:data=json.loads(probe.get("stdout",probe.get("output","")))
+                except (ValueError,TypeError):data={}
+                passed=data["smart_status"].get("passed") if isinstance(data,dict) and isinstance(data.get("smart_status"),dict) else None
+                code=probe.get("code",126);text=probe.get("stderr","")+probe.get("output","")
+                if STOP.is_set() or code in (-signal.SIGINT,130):kind="canceled"
+                elif code==124:kind="timeout"
+                elif re.search(r"password|authentication|not allowed|permission denied|sudo:",text,re.I):kind="denied"
+                elif not probe.get("ok") or code&7 or not isinstance(passed,bool):kind="unsupported" if probe.get("ok") and not isinstance(passed,bool) else "blocked"
+                else:
+                    if not passed or code&0xf8:bad.append(device["path"])
+                    continue
+                failures.append((device["path"],kind,probe.get("output",kind)[:500]))
+                if kind in ("canceled","denied","timeout"):break
+            if smart_inventory(inventory_run)!=inventory:raise ValueError("Drive inventory changed during measurement; the retained evidence cannot establish current coverage.")
+            complete=not failures and checked==len(inventory)
+        except (ValueError,OSError) as exc:failures.append(("inventory","blocked",str(exc)))
+        state="bad" if bad else "ok" if complete else "unknown"
+        summary="SMART health failure: "+", ".join(bad) if bad else "Read-only SMART health measured on all confirmed physical drives." if complete else "SMART verification "+(failures[0][1] if failures else "incomplete")+"; no complete healthy result can be inferred."
+        row=result("drives","disk","Physical drive health",state,summary,"\n\n".join(evidence)+"\n"+"\n".join(item[2] for item in failures),job.get("command",""),{"drives_checked":checked,"drives_unknown":len(failures),"smart_complete":complete})
+        row.update(coverage_incomplete=not complete,requires_smart_verification=not complete,verification_method="Explicit user-triggered read-only SMART measurement; only /usr/bin/smartctl elevated.")
+        job["phase"]="complete" if complete else failures[0][1] if failures else "blocked"
+        job["error"]="" if complete else "; ".join(item[2] for item in failures)
+        row["verification"]=compact_job(job);job["row"]=row;put_job(h,job);save_verification_row(h,row,"protected_smart_verification")
         return row,compact_job(job)
     finally:h.close()
 
@@ -1502,7 +1628,7 @@ def run_scan(probes, deep=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["scan", "watch", "history", "export", "fix", "recheck", "fixes", "report", "handoff", "assess", "verify-shell", "restart-shell-verification", "start-package-verification", "verify-packages", "verify-journal", "restart-journal-verification"], nargs="?", default="scan")
+    parser.add_argument("action", choices=["scan", "watch", "history", "export", "fix", "recheck", "fixes", "report", "handoff", "assess", "verify-shell", "restart-shell-verification", "start-package-verification", "verify-packages", "verify-journal", "restart-journal-verification", "smart-plan", "start-smart-verification", "verify-smart"], nargs="?", default="scan")
     parser.add_argument("check", nargs="?", default="")
     parser.add_argument("--deep", action="store_true")
     parser.add_argument("--interactive", action="store_true", help="use the visible agent session instead of a supported background run")
@@ -1514,6 +1640,7 @@ def main():
     parser.add_argument("--result-file", type=Path)
     parser.add_argument("--disposition", choices=["needs_fix","investigate","monitor","benign"])
     parser.add_argument("--reason", default="")
+    parser.add_argument("--devices-json", default="")
     parser.add_argument("--launcher-json", default="")
     parser.add_argument("--prompt-file", type=Path)
     args = parser.parse_args()
@@ -1526,6 +1653,22 @@ def main():
         try:save_verification_row(h,row,row["id"]+"_coverage_verification")
         finally:h.close()
         emit("check",result=row,completed=1,total=1);emit("verification_end",job=job)
+    elif args.action=="smart-plan":
+        emit("smart_plan",plan=smart_plan())
+    elif args.action=="start-smart-verification":
+        if not args.devices_json or len(args.devices_json)>32768:raise ValueError("A reviewed bounded device plan is required.")
+        emit("verification_progress",job=start_smart_verification(args.database,expected=json.loads(args.devices_json)))
+    elif args.action=="verify-smart":
+        job=verification_job(args.database,"drives")
+        if not job or job["id"]!=args.check or job["phase"]!="awaiting_auth":raise ValueError("No matching user-triggered SMART verification.")
+        print("Doctor: read-only SMART health verification. Doctor stays unprivileged. Only these packaged smartctl commands get root; no tests, writes, firmware or permission changes. Authenticate normally; Ctrl+C cancels.\n"+job["command"],flush=True)
+        try:
+            row,job=verify_smart(args.database,args.check)
+            print(row["summary"]+"\n"+job["error"],flush=True)
+        finally:
+            if sys.stdin.isatty():
+                try:input("Press Enter to close this verification terminal.")
+                except (EOFError,KeyboardInterrupt):pass
     elif args.action=="start-package-verification":
         emit("verification_progress",job=start_package_verification(args.database))
     elif args.action=="verify-packages":

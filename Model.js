@@ -190,6 +190,7 @@ function issueSummary(rows,complete,archived,now) {
 }
 function nextAction(row) {
     if(!row)return "Run Doctor to collect a current measurement."
+    if(row.id==="drives"&&row.state==="unknown")return "Open Verification → Read SMART health. Review the discovered devices and exact read-only commands, then authenticate in the normal terminal. An ordinary retry cannot renew inaccessible or old SMART evidence."
     if(row.id==="packages"&&row.state==="unknown")return "Open Verification → Verify protected package files. Review the fixed read-only command and authenticate in its normal terminal. An ordinary recheck cannot establish protected-file coverage."
     if(quietNote(row))return "This log warning or test record is preserved. Review its source, time and functional impact before marking any repair needed; recurrence alone does not prove an ongoing failure."
     if((row.id==="shell"||row.id==="journal")&&row.state==="unknown")return "Open Verification → Read complete shell/boot journal. Each bounded operation advances the same fixed snapshot; Continue collection resumes its saved cursor. Only confirmed complete readable coverage can clear this gap."

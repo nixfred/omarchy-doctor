@@ -5,10 +5,13 @@ ROOT=Path(os.environ.get('DOCTOR_RUNTIME_ROOT',str(Path(__file__).resolve().pare
 host='''import QtQuick
 import qs.Commons
 QtObject{
- property var shownRows:[{id:"shell",finding_number:"F-fixture-shell",state:"unknown",metrics:{},timestamp:Date.now()/1000},{id:"packages",finding_number:"F-fixture-packages",state:"unknown",metrics:{},timestamp:Date.now()/1000}]
+ property var shownRows:[{id:"shell",finding_number:"F-fixture-shell",state:"unknown",metrics:{},timestamp:Date.now()/1000},{id:"drives",finding_number:"F-fixture-drives",state:"unknown",metrics:{},timestamp:Date.now()/1000},{id:"packages",finding_number:"F-fixture-packages",state:"unknown",metrics:{},timestamp:Date.now()/1000}]
  property real now:Date.now()/1000
  property var verificationJobs:[{check:"shell",phase:"collecting",raw_entries:1900,pages:19,until:Date.now()/1000,error:"",updated:Date.now()/1000}]
  property bool packageConfirmation:true
+ property bool smartConfirmation:true
+ property bool smartPlanBusy:false
+ property var smartPlan:({inventory:[],commands:["/usr/bin/sudo /usr/bin/smartctl -j -H /dev/nvme0n1"],error:""})
  property bool stale:true
  property bool complete:true
  property bool verifying:false
@@ -21,7 +24,7 @@ QtObject{
  property color good:"#a9d98b"
  property color warning:"#e8b572"
  function verificationJob(k){return verificationJobs.find(function(j){return j.check===k})||null}
- function verifyJournal(a){} function verifyShell(a){} function cancelVerification(){} function requestPackageVerification(){} function startPackageVerification(){} function showFindings(a){} function refresh(a){}
+ function requestSmartVerification(){} function startSmartVerification(){} function verifyJournal(a){} function verifyShell(a){} function cancelVerification(){} function requestPackageVerification(){} function startPackageVerification(){} function showFindings(a){} function refresh(a){}
 }'''
 qml='''import QtQuick
 import QtQuick.Window
@@ -38,7 +41,7 @@ ShellRoot{
  ReadPages{id:reader;x:16;y:16;width:win.width-32;height:win.height-32;ink:host.ink;accent:host.good;VerificationPane{id:pane;host:host;width:reader.width}}
  }
  Timer{interval:180;repeat:true;running:true;onTriggered:{step++
- if(step>=2&&step<=6){check(pane);ok(reader.viewportHeight>0&&reader.height===win.height-32,"fitted viewport");ok(reader.contentHeight<=reader.viewportHeight||reader.pageCount>1,"overflow reachable by explicit pages");var a=reader.offsets;for(var i=1;i<a.length;i++)ok(a[i]>a[i-1]&&a[i]-a[i-1]<=reader.viewportHeight,"reading pages have no gaps");ok(a[a.length-1]+reader.viewportHeight>=reader.contentHeight,"final page reaches confirmation and refresh");var b=find(pane,"doctor-confirm-package-verification");ok(b&&b.x>=0&&b.x+b.width<=b.parent.width+1,"approval action fits its flow");var c=find(pane,"doctor-verify-shell");ok(c&&c.text==="Continue collection"&&c.width<=c.parent.width,"finite collection action fits")}
+ if(step>=2&&step<=6){check(pane);ok(reader.viewportHeight>0&&reader.height===win.height-32,"fitted viewport");ok(reader.contentHeight<=reader.viewportHeight||reader.pageCount>1,"overflow reachable by explicit pages");var a=reader.offsets;for(var i=1;i<a.length;i++)ok(a[i]>a[i-1]&&a[i]-a[i-1]<=reader.viewportHeight,"reading pages have no gaps");ok(a[a.length-1]+reader.viewportHeight>=reader.contentHeight,"final page reaches confirmation and refresh");var b=find(pane,"doctor-confirm-package-verification");ok(b&&b.x>=0&&b.x+b.width<=b.parent.width+1,"approval action fits its flow");var smart=find(pane,"doctor-confirm-smart-verification");ok(smart&&smart.enabled&&smart.width<=smart.parent.width,"SMART confirmation fits and is reachable");var c=find(pane,"doctor-verify-shell");ok(c&&c.text==="Continue collection"&&c.width<=c.parent.width,"finite collection action fits")}
  if(step<=5){win.width=sizes[step-1][0];win.height=sizes[step-1][1];reader.reset()}
  if(step===7){console.log("VERIFICATION_FIT_PASS");Qt.quit()}
  }}

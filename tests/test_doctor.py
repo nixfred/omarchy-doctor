@@ -103,26 +103,18 @@ class Diagnostics(unittest.TestCase):
             return probe('Permission denied',2)
         self.assertEqual(doctor.Probes(run).drives()['state'],'unknown')
 
-    def test_smart_permission_error_retries_once_with_sudo_n(self):
+    def test_smart_permission_error_requires_explicit_action_without_elevation(self):
         calls=[]
         def run(args,**kw):
             calls.append(args)
             if args[0]=='lsblk':return probe(json.dumps({'blockdevices':[{'name':'/dev/nvme0n1','type':'disk'}]}))
-            if args[:2]==['sudo','-n']:return probe(json.dumps({'smart_status':{'passed':True}}))
             return probe('Smartctl open device: /dev/nvme0n1 failed: Permission denied',2)
         row=doctor.Probes(run).drives()
-        self.assertEqual(row['state'],'ok')
-        self.assertEqual(calls[2],['sudo','-n','smartctl','-j','-H','/dev/nvme0n1'])
-        self.assertEqual(len(calls),3)
-
-    def test_sudo_password_required_stays_unknown_without_prompting(self):
-        def run(args,**kw):
-            if args[0]=='lsblk':return probe(json.dumps({'blockdevices':[{'name':'/dev/nvme0n1','type':'disk'}]}))
-            if args[:2]==['sudo','-n']:return probe('sudo: a password is required',1)
-            return probe('Permission denied',2)
-        row=doctor.Probes(run).drives()
         self.assertEqual(row['state'],'unknown')
-        self.assertIn('a password is required',row['evidence'])
+        self.assertTrue(row['requires_smart_verification'])
+        self.assertIn('Read SMART health',row['summary'])
+        self.assertEqual(len(calls),2)
+        self.assertFalse(any('sudo' in a[0] for a in calls))
 
     def test_ipv6_only_route_works(self):
         def run(args,**kw):
