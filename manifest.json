@@ -2,18 +2,18 @@
   "schemaVersion": 1,
   "id": "nixfred.doctor",
   "name": "Omarchy Doctor",
-  "version": "1.6.0",
+  "version": "2.0.0",
   "author": "Fred Nix",
-  "description": "Animated system diagnostics with live hardware graphics, evidence, bounded scans and seven-day local history.",
+  "description": "Keeps an eye on your computer and tells you in plain words when something needs you. Green means nothing to do.",
   "kinds": [
     "bar-widget"
   ],
   "entryPoints": {
-    "barWidget": "runtime-1.6.0-r10-final/Doctor.qml"
+    "barWidget": "Doctor.qml"
   },
   "barWidget": {
     "displayName": "Omarchy Doctor",
-    "description": "System health and diagnostics",
+    "description": "Is my computer OK?",
     "category": "System",
     "defaultSection": "right",
     "allowMultiple": false

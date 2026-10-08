@@ -1,8 +1,0 @@
-{
-  "verdict": "Kimi finding 6 rejected: the hidden-tab class is cleared on visibility restoration; manual pause remains independent.",
-  "hiddenPaused": true,
-  "shownPaused": false,
-  "manualPausePreserved": true,
-  "animation": "running",
-  "pressed": "false"
-}

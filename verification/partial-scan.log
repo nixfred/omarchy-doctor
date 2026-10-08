@@ -1,6 +1,0 @@
-  INFO: Launching config: "/tmp/doctor-partial-wx6qdzbd/shell.qml"
-  INFO: Shell ID: "c215b705c5825e22d8c31d06424023ec" Path ID "c215b705c5825e22d8c31d06424023ec"
-  INFO: Saving logs to "/run/user/1000/quickshell/by-id/m4g51gfo7mt/log.qslog"
-  INFO: Configuration Loaded
-  WARN qt.qpa.services: Failed to register with host portal QDBusError("org.freedesktop.portal.Error.Failed", "Could not register app ID: Connection already associated with an application ID")
- DEBUG qml: PARTIAL_STATE {"version":"1.0.0","opened":false,"page":"overview","scanning":false,"complete":false,"state":"unknown","counts":{"ok":1,"warn":0,"bad":0,"unknown":0,"skipped":0},"lastScan":0,"vitalsAt":0,"liveFresh":false,"sampleCount":0,"scanCount":0,"results":[{"id":"cpu","domain":"cpu","title":"CPU","state":"ok","summary":"Partial fixture","metrics":{}}],"metrics":{},"motion":true,"width":36,"height":35,"panelWidth":1440,"panelHeight":44,"panelX":4,"panelY":4,"contentHeight":0,"notice":"","scanError":"Collector did not finish. Results are partial."}

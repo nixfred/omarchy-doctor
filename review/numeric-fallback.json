@@ -1,6 +1,0 @@
-{
-  "case": "Non-numeric memory probe output",
-  "exit": 127,
-  "stdout": "",
-  "stderr": "bash: line 77: garbage: unbound variable"
-}

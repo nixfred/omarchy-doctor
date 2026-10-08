@@ -1,9 +1,0 @@
-{
-  "event": {
-    "schema": 1,
-    "type": "export",
-    "path": "/home/pi/.local/state/omarchy-doctor/reports/doctor-20261001-003002.json"
-  },
-  "mode": "0o600",
-  "bytes": 55816
-}

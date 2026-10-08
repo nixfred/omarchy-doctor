@@ -1,8 +1,0 @@
-  INFO: Launching config: "/tmp/doctor-native-review/shell.qml"
-  INFO: Shell ID: "098a09105c08569f879eea54c783bfd3" Path ID "098a09105c08569f879eea54c783bfd3"
-  INFO: Saving logs to "/run/user/1000/quickshell/by-id/fs81iem7mt/log.qslog"
-  INFO: Configuration Loaded
-  WARN qt.qpa.services: Failed to register with host portal QDBusError("org.freedesktop.portal.Error.Failed", "Could not register app ID: Connection already associated with an application ID")
- DEBUG qml: DOCTOR_REVIEW {"width":0,"implicitWidth":0,"height":0,"implicitHeight":0}
- DEBUG qml: DOCTOR_REVIEW {"status":"ok","label":"All systems healthy","ok":0,"results":1}
- DEBUG qml: DOCTOR_PARTIAL_EXIT_7 {"status":"ok","label":"All systems healthy","scanning":false,"results":[{"status":"ok","title":"Memory","summary":"Sample healthy row","command":"free -h"}]}

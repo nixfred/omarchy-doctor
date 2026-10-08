@@ -1,9 +1,0 @@
-{
-  ".config/hypr/hyprland.lua": "a40d0566b409115cc8d9259f9d1d2d953dca17a4bccec97447472a3e147447c3",
-  ".config/hypr/clipboard.lua": "269c9c249a499157cbec552700a145b8e5eccec310c489e4e18483a360d1610b",
-  ".config/hypr/copilot.lua": "a99df9d67c3654709f09105b663c209c0ce11a666ec08d5543d566df5d82e482",
-  ".config/hypr/input.lua": "2d60db4b37bfa960f049bad4314f1e954d7491fbbda5ebd5bc69fac8852d258e",
-  ".local/bin/omarchy-terminal-paste": "1b1717888de18d1a50daf48c2d086b1d7083831fc3bc48f0c34400d98523a02b",
-  ".local/share/selection-clipboard/brave-copy-selection.py": "0f590f735983f7a8313eca3d90dbbac1e65cb424c00777d80e58c67e35086629",
-  ".config/systemd/user/brave-selection-clipboard.service": "7ece6c95d7a96b133b0b40300bae69e80eb1a75b817f102285641fc223b58a66"
-}

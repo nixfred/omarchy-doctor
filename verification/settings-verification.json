@@ -1,9 +1,0 @@
-{
-  "public_api_persistence_and_live_readback": true,
-  "reduced_then_animated": true,
-  "settings": {
-    "id": "nixfred.doctor",
-    "motion": true
-  },
-  "physical_button_clicks_tested": false
-}

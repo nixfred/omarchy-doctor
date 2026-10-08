@@ -1,6 +1,0 @@
-{
-  "animated_cpu_percent_of_one_core": 5.33,
-  "reduced_cpu_percent_of_one_core": 0.17,
-  "closed_cpu_percent_of_one_core": 0.0,
-  "animation_gates": "PASS: motion advances while open; phases stop in reduced mode and when closed."
-}
