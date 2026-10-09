@@ -72,6 +72,21 @@ class Checks(unittest.TestCase):
             return probe("smartctl is not installed.", 127)
         self.assertEqual(doctor.Probes(run).drives()["state"], "unknown")
 
+    def test_battery_found_by_type_not_name(self):
+        with tempfile.TemporaryDirectory() as d:
+            def supply(name, **files):
+                (Path(d) / name).mkdir()
+                for k, v in files.items():
+                    (Path(d) / name / k).write_text(v)
+            supply("macsmc-ac", type="Mains")
+            supply("hidpp_battery_0", type="Battery", scope="Device", capacity="20")
+            supply("macsmc-battery", type="Battery", scope="System", capacity="86",
+                   charge_full="4500000", charge_full_design="5000000")
+            with patch.object(doctor.Probes, "POWER_SUPPLY", Path(d)):
+                row = doctor.Probes(lambda *a, **kw: probe()).battery()
+        self.assertEqual(row["state"], "ok")    # Asahi's battery is macsmc-battery, not BAT0; the mouse is skipped
+        self.assertIn("90%", row["title"])
+
     def test_a_broken_probe_never_breaks_the_scan(self):
         class Boom(doctor.Probes):
             def memory(self):
