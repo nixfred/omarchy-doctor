@@ -140,6 +140,8 @@ def pressure(kind):
         return None
 
 class Probes:
+    POWER_SUPPLY = Path("/sys/class/power_supply")
+
     def __init__(self, run=None):
         self.run = run or Runner()
 
@@ -246,7 +248,18 @@ class Probes:
             "sensors", level=RANK[state], signature=worst[0].split()[0], metrics={"temperature_c": hottest[1]})
 
     def battery(self):
-        batteries = sorted(Path("/sys/class/power_supply").glob("BAT*"))
+        # By what the supply says it is, not its name: Asahi's is macsmc-battery, not BAT0.
+        # scope "Device" is a peripheral's own battery (a mouse, a headset), not the laptop's.
+        batteries = []
+        for supply in sorted(self.POWER_SUPPLY.glob("*"), key=lambda p: (not p.name.startswith("BAT"), p.name)):
+            try:
+                if (supply / "type").read_text().strip() != "Battery":
+                    continue
+                if (supply / "scope").exists() and (supply / "scope").read_text().strip() == "Device":
+                    continue
+            except OSError:
+                continue
+            batteries.append(supply)
         if not batteries:
             return finding("battery", "skipped", "No battery on this computer")
         b = batteries[0]
