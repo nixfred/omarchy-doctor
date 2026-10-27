@@ -13,7 +13,7 @@ Column {
 
     Row {
         width: parent.width; spacing: 14
-        MedicalCross { width: 44; height: 44; state: host.iconState; busy: host.scanning; anchors.verticalCenter: parent.verticalCenter }
+        MedicalCross { width: 44; height: 44; state: host.iconState; busy: host.scanning; style: host.iconStyle; ok: host.good; warn: host.warning; bad: host.danger; dim: host.dim; anchors.verticalCenter: parent.verticalCenter }
         Column {
             width: parent.width - 58 - checkButton.width - 14; spacing: 3; anchors.verticalCenter: parent.verticalCenter
             Words { width: parent.width; text: host.headline; font.pixelSize: 24; color: host.rows.length ? host.tint(host.verdict.count ? host.verdict.state : "ok") : host.ink }

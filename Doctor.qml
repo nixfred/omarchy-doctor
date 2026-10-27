@@ -29,7 +29,7 @@ Panel {
     property bool showFine: false
     property var openDetails: ({})
     readonly property bool scanning: collector.running
-    readonly property bool autoCheck: root.setting("autoCheck", true) === true
+    readonly property string iconStyle: root.setting("iconStyle", "outline")
     readonly property string repoUrl: "https://github.com/nixfred/omarchy-doctor"
     readonly property string homeUrl: "https://nixfred.com"
 
@@ -142,7 +142,7 @@ Panel {
         id: button; anchors.fill: parent; bar: root.bar; text: ""
         active: root.verdict.count > 0
         tooltipText: "Omarchy Doctor · " + (root.rows.length ? root.headline : "not checked yet")
-        iconComponent: Component { MedicalCross { state: root.iconState; count: root.verdict.count; busy: root.scanning } }
+        iconComponent: Component { MedicalCross { state: root.iconState; count: root.verdict.count; busy: root.scanning; bar: root.bar; style: root.iconStyle; ok: root.good; warn: root.warning; bad: root.danger; dim: Qt.alpha(ink, 0.62) } }
         onPressed: function(code) {
             if (code === Qt.MiddleButton) root.scan()
             else if (code === Qt.RightButton) { root.page = "about"; root.open() }
