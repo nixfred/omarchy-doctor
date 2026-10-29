@@ -14,6 +14,29 @@ import doctor
 def probe(text="", code=0):
     return {"ok": code == 0, "code": code, "stdout": text, "output": text, "command": "fake"}
 
+ROOT_ON_LUKS = {"blockdevices": [{"name": "/dev/nvme0n1", "fstype": None, "mountpoints": [], "children": [
+    {"name": "/dev/nvme0n1p1", "fstype": "vfat", "mountpoints": ["/boot"]},
+    {"name": "/dev/nvme0n1p2", "fstype": "crypto_LUKS", "mountpoints": [], "children": [
+        {"name": "/dev/mapper/root", "fstype": "btrfs", "mountpoints": ["/home", "/"]}]}]}]}
+
+LUKS2_ONE_SLOT = """LUKS header information
+Version:       \t2
+Keyslots:
+  0: luks2
+\tKey:        512 bits
+\tPBKDF:      argon2id
+Tokens:
+Digests:
+  0: pbkdf2
+"""
+LUKS2_TWO_SLOTS = LUKS2_ONE_SLOT.replace("Tokens:", "  1: luks2\n\tKey:        512 bits\nTokens:")
+LUKS1_ONE_SLOT = "LUKS header information for /dev/sda2\n\nVersion:       \t1\nKey Slot 0: ENABLED\nKey Slot 1: DISABLED\n"
+LUKS1_TWO_SLOTS = LUKS1_ONE_SLOT.replace("Key Slot 1: DISABLED", "Key Slot 1: ENABLED")
+
+def luks(dump, tree=None):
+    """A Runner that reports root on LUKS and hands back `dump` for the header."""
+    return lambda args, **kw: probe(json.dumps(tree or ROOT_ON_LUKS)) if args[0] == "lsblk" else probe(dump)
+
 def rows_ok():
     return [doctor.finding(k, "ok", n + " fine") for k, n in doctor.CHECKS]
 
@@ -86,6 +109,50 @@ class Checks(unittest.TestCase):
                 row = doctor.Probes(lambda *a, **kw: probe()).battery()
         self.assertEqual(row["state"], "ok")    # Asahi's battery is macsmc-battery, not BAT0; the mouse is skipped
         self.assertIn("90%", row["title"])
+
+    def test_one_unlock_passphrase_warns_with_a_way_out(self):
+        row = doctor.Probes(luks(LUKS2_ONE_SLOT)).encryption()
+        self.assertEqual(row["state"], "warn")
+        self.assertIn("one unlock passphrase", row["title"])
+        self.assertIn("luksAddKey", row["command"])
+        self.assertEqual(row["metrics"]["luks_key_slots"], 1)
+
+    def test_a_second_passphrase_is_fine(self):
+        row = doctor.Probes(luks(LUKS2_TWO_SLOTS)).encryption()
+        self.assertEqual((row["state"], row["metrics"]["luks_key_slots"]), ("ok", 2))
+
+    def test_luks1_slots_are_counted_too(self):
+        self.assertEqual(doctor.Probes(luks(LUKS1_ONE_SLOT)).encryption()["state"], "warn")
+        self.assertEqual(doctor.Probes(luks(LUKS1_TWO_SLOTS)).encryption()["state"], "ok")
+
+    def test_an_unencrypted_computer_is_skipped(self):
+        tree = {"blockdevices": [{"name": "/dev/sda", "fstype": "ext4", "mountpoints": ["/"]}]}
+        self.assertEqual(doctor.Probes(lambda *a, **kw: probe(json.dumps(tree))).encryption()["state"], "skipped")
+
+    def test_an_encrypted_data_disk_is_not_the_root_disk(self):
+        # Losing a backup disk's passphrase is bad; losing the one that holds / is the whole computer.
+        tree = {"blockdevices": [
+            {"name": "/dev/sda", "fstype": "ext4", "mountpoints": ["/"]},
+            {"name": "/dev/sdb1", "fstype": "crypto_LUKS", "mountpoints": [],
+             "children": [{"name": "/dev/mapper/backup", "fstype": "btrfs", "mountpoints": ["/mnt/backup"]}]}]}
+        self.assertEqual(doctor.Probes(lambda *a, **kw: probe(json.dumps(tree))).encryption()["state"], "skipped")
+
+    def test_an_unreadable_header_is_not_checked(self):
+        # No passwordless sudo rule: the check says it could not look, and counts against nobody.
+        def run(args, **kw):
+            if args[0] == "lsblk":
+                return probe(json.dumps(ROOT_ON_LUKS))
+            if args[0] == "sudo":
+                return probe("sudo: a password is required", 1)
+            return probe("Device /dev/nvme0n1p2 does not exist or access denied.", 4)
+        row = doctor.Probes(run).encryption()
+        self.assertEqual(row["state"], "unknown")
+        self.assertIn("permission", row["title"])
+
+    def test_missing_cryptsetup_is_not_checked(self):
+        def run(args, **kw):
+            return probe(json.dumps(ROOT_ON_LUKS)) if args[0] == "lsblk" else probe("cryptsetup is not installed.", 127)
+        self.assertEqual(doctor.Probes(run).encryption()["state"], "unknown")
 
     def test_a_broken_probe_never_breaks_the_scan(self):
         class Boom(doctor.Probes):
@@ -181,12 +248,12 @@ class Cli(unittest.TestCase):
     def tearDown(self):
         self.dir.cleanup()
 
-    def test_scan_emits_eight_checks_and_a_verdict(self):
+    def test_scan_emits_nine_checks_and_a_verdict(self):
         code, events = self.run_cli("scan")
         self.assertEqual(code, 0)
         state = events[-1]
         self.assertEqual(state["type"], "state")
-        self.assertEqual(len(state["rows"]), 8)
+        self.assertEqual(len(state["rows"]), 9)
         self.assertIn(state["verdict"]["state"], ("ok", "warn", "bad"))
 
     def test_unknown_check_is_refused(self):

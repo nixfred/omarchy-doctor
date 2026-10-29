@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Omarchy Doctor: eight plain-English health checks, a little local history,
+"""Omarchy Doctor: nine plain-English health checks, a little local history,
 and a hand-off to your own coding agent when something needs fixing.
 
 Green means there is nothing you need to do. Only problems a person can act on
@@ -138,6 +138,24 @@ def pressure(kind):
         return number(m.group(1)) if m else None
     except OSError:
         return None
+
+def key_slots(dump):
+    """Passphrases that can open this header. LUKS2 lists them under Keyslots, LUKS1 as Key Slot N: ENABLED."""
+    return len(re.findall(r"^(?:\s+\d+: luks2|Key Slot \d+: ENABLED)\s*$", dump, re.M))
+
+def root_luks(tree):
+    """The LUKS devices whose unlocked contents hold /. A data disk you could re-create is not this check's worry."""
+    def holds_root(node):
+        points = node.get("mountpoints") or [node.get("mountpoint")]
+        return "/" in points or any(holds_root(child) for child in node.get("children") or [])
+    def walk(nodes, found):
+        for node in nodes:
+            name = node.get("name", "")
+            if node.get("fstype") == "crypto_LUKS" and holds_root(node) and re.fullmatch(r"/dev/[A-Za-z0-9_.-]+", name):
+                found.append(name)
+            walk(node.get("children") or [], found)
+        return found
+    return walk(tree.get("blockdevices") or [], [])
 
 class Probes:
     POWER_SUPPLY = Path("/sys/class/power_supply")
@@ -337,9 +355,52 @@ class Probes:
             f"{free:.1f} GiB available, {used:.0f}% in use, memory pressure {psi if psi is not None else 'n/a'}%.",
             "free -h", level=RANK[state], signature="memory", metrics={"ram_available_gib": free, "ram_used_pct": used})
 
+    def encryption(self):
+        p = self.run(["lsblk", "-J", "-p", "-o", "NAME,FSTYPE,MOUNTPOINTS"])
+        try:
+            devices = root_luks(json.loads(p["stdout"])) if p["ok"] else None
+        except (ValueError, AttributeError, KeyError):
+            devices = None
+        if devices is None:
+            return not_checked("encryption", "disk encryption", p)
+        if not devices:
+            return finding("encryption", "skipped", "No encrypted disk to check")
+        slots, thin, details = {}, [], []
+        for name in devices[:4]:
+            q = self.run(["cryptsetup", "luksDump", name])
+            if q["code"] == 127:
+                return not_checked("encryption", "disk encryption (install cryptsetup)", q)
+            # Only root may read a LUKS header. sudo -n uses an existing passwordless
+            # rule or fails at once; it never prompts, the same as drive health above.
+            if not q["ok"] and "access denied" in q["output"]:
+                q = self.run(["sudo", "-n", "cryptsetup", "luksDump", name], timeout=6)
+            n = key_slots(q["stdout"]) if q["ok"] else 0
+            if not n:
+                details.append(f"{name}: {q['output']}")
+                continue
+            slots[name] = n
+            details.append(f"{name}: {n} unlock passphrase(s)")
+            if n < 2:
+                thin.append(name)
+        if not slots:
+            return not_checked("encryption", "disk encryption (needs permission to read it)",
+                {"output": "\n".join(details), "command": f"sudo cryptsetup luksDump {devices[0]}"})
+        fewest = min(slots.values())
+        if thin:
+            title = ("Your encrypted disk has only one unlock passphrase" if len(thin) == 1
+                     else f"{len(thin)} encrypted disks have only one unlock passphrase")
+            return finding("encryption", "warn", title,
+                "Add a second passphrase and keep it somewhere safe. If you forget the only one, nothing can open the disk.",
+                "\n".join(details), f"sudo cryptsetup luksAddKey {thin[0]}",
+                level=len(thin), signature=" ".join(sorted(thin)), metrics={"luks_key_slots": fewest})
+        return finding("encryption", "ok", f"Encrypted disk has {fewest} unlock passphrases",
+            details="\n".join(details), command=f"sudo cryptsetup luksDump {min(slots)}",
+            metrics={"luks_key_slots": fewest})
+
 CHECKS = [("storage", "Disk space"), ("services", "Background services"), ("drives", "Drive health"),
           ("temperature", "Temperature"), ("battery", "Battery"), ("network", "Internet"),
-          ("wifi", "Wi-Fi"), ("memory", "Memory")]
+          ("wifi", "Wi-Fi"), ("memory", "Memory"),
+          ("encryption", "Disk encryption")]
 
 def run_check(probes, key):
     try:
