@@ -22,7 +22,7 @@ Run that as yourself in a terminal (no `sudo`). The cross appears on your bar, a
 
 ## What it checks
 
-Eight things that you can actually do something about:
+Nine things that you can actually do something about:
 
 | Check | Warns when |
 |---|---|
@@ -34,6 +34,7 @@ Eight things that you can actually do something about:
 | Internet | you're offline, or websites can't be found (DNS) |
 | Wi-Fi | Wi-Fi is off and you have no cable plugged in |
 | Memory | your computer is actually short on memory |
+| Disk encryption | your encrypted disk has only one unlock passphrase |
 
 Doctor checks every 15 minutes in the background (you can turn that off). If a check can't run, for example when `smartmontools` isn't installed, Doctor says so in the list and **doesn't count it against you**.
 
@@ -62,7 +63,7 @@ Everything stays on your computer. The checks only read. Nothing changes unless 
 ## For tinkerers
 
 ```bash
-python3 doctor.py scan                  # run all eight checks (JSON lines)
+python3 doctor.py scan                  # run all nine checks (JSON lines)
 python3 doctor.py recheck storage       # check one thing again
 omarchy-shell nixfred.doctor status     # what the panel shows
 ```

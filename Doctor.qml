@@ -118,7 +118,7 @@ Panel {
     Component.onCompleted: { act("state"); agentReader.running = true }
     onOpenedChanged: if (opened) { now = Date.now() / 1000; page = "status"; agentReader.running = true; if (now - lastScan > 600) scan() }
     Timer { interval: root.opened ? 15000 : 60000; repeat: true; running: true; onTriggered: root.now = Date.now() / 1000 }
-    // The icon is the product: keep it current in the background (eight light checks, about a second).
+    // The icon is the product: keep it current in the background (nine light checks, about a second).
     Timer { interval: 30000; running: root.autoCheck; onTriggered: root.scan() }
     Timer { interval: 900000; repeat: true; running: root.autoCheck; onTriggered: root.scan() }
 
