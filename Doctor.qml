@@ -29,6 +29,7 @@ Panel {
     property bool showFine: false
     property var openDetails: ({})
     readonly property bool scanning: collector.running
+    readonly property bool autoCheck: root.setting("autoCheck", true) === true
     readonly property string iconStyle: root.setting("iconStyle", "outline")
     readonly property string repoUrl: "https://github.com/nixfred/omarchy-doctor"
     readonly property string homeUrl: "https://nixfred.com"

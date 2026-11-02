@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Shapes
 import qs.Commons
+import qs.Commons as Commons
 
 // Bar icon: a medical cross in one of three styles ("outline", "badge",
 // "signal"), picked in About & settings. No count text anywhere — unreadable
@@ -18,7 +19,7 @@ Item {
     property color warn: "#e8b572"
     property color bad: "#ef8a78"
     property color dim: "#7d8590"
-    property color ink: bar ? bar.barForeground : Color.foreground
+    property color ink: bar ? bar.barForeground : Commons.Color.foreground
     readonly property color badFill: bar ? bar.urgent : "#e5484d"
     readonly property color warnFill: "#d4a017"
     readonly property color stateColor: root.state === "bad" ? root.bad : root.state === "warn" ? root.warn : root.state === "ok" ? root.ok : root.dim
