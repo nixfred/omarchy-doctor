@@ -99,7 +99,8 @@ def acpi_trips():
     ACPI zones hand their trips to the kernel but no max/crit through lm-sensors, so HP's acpitz
     zone (ladder 70/99/120) got judged against a flat 85°C and cried wolf at 87."""
     trips = {}
-    for zone in sorted(THERMAL.glob("thermal_zone*")):
+    # By zone number: as text thermal_zone10 sorts before thermal_zone2, and lm-sensors counts in zone order.
+    for zone in sorted(THERMAL.glob("thermal_zone*"), key=lambda z: int(re.sub(r"\D", "", z.name) or 0)):
         temps = []
         for path in zone.glob("trip_point_*_temp"):
             try:

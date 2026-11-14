@@ -88,6 +88,18 @@ class Checks(unittest.TestCase):
                 tree["acpitz-acpi-0"]["temp1"]["temp1_input"] = 50
                 self.assertEqual(probe_row()["state"], "warn")
 
+    def test_acpi_zones_are_ordered_by_number_not_by_name(self):
+        # As text thermal_zone10 sorts before thermal_zone2, but lm-sensors numbers an ACPI chip's
+        # temp1, temp2... in zone order, so temp1 must get zone 2's ladder and temp2 zone 10's.
+        with tempfile.TemporaryDirectory() as d:
+            for name, trip in (("thermal_zone2", 98000), ("thermal_zone10", 110000)):
+                zone = Path(d) / name
+                zone.mkdir()
+                (zone / "type").write_text("acpitz\n")
+                (zone / "trip_point_0_temp").write_text(f"{trip}\n")
+            with patch.object(doctor, "THERMAL", Path(d)):
+                self.assertEqual(doctor.acpi_trips()["acpitz"], [(93.0, 98.0), (105.0, 110.0)])
+
     def test_no_route_means_offline(self):
         run = lambda args, **kw: probe("[]")
         row = doctor.Probes(run).network()
