@@ -92,10 +92,35 @@ def not_checked(key, why, probe=None):
 # into the 90s by design, so they get their package limit instead of a flat 85°C.
 CPU_LIMITS = (("k10temp", 95, 100), ("zenpower", 95, 100), ("coretemp", 95, 100))
 DEFAULT_LIMITS = (85, 95)
+THERMAL = Path("/sys/class/thermal")
+
+def acpi_trips():
+    """ACPI zone type -> its (warn, critical) trip ladder, one entry per zone in thermal_zone order.
+    ACPI zones hand their trips to the kernel but no max/crit through lm-sensors, so HP's acpitz
+    zone (ladder 70/99/120) got judged against a flat 85°C and cried wolf at 87."""
+    trips = {}
+    for zone in sorted(THERMAL.glob("thermal_zone*")):
+        temps = []
+        for path in zone.glob("trip_point_*_temp"):
+            try:
+                n = number(path.read_text().strip())
+            except OSError:
+                continue
+            if n is not None and 40 <= n / 1000 <= 130:
+                temps.append(n / 1000)
+        try:
+            kind = (zone / "type").read_text().strip()
+        except OSError:
+            continue
+        temps.sort()
+        ladder = (temps[-2] if len(temps) > 1 else temps[-1] - 5, temps[-1]) if temps else None
+        trips.setdefault(kind, []).append(ladder)
+    return trips
 
 def sensor_limits(tree):
     """(label, current, warn, critical) per sensor, using the hardware's own limits when it has them."""
     out = []
+    trips = acpi_trips()
     for chip, features in (tree.items() if isinstance(tree, dict) else []):
         if not isinstance(features, dict):
             continue
@@ -119,7 +144,10 @@ def sensor_limits(tree):
                 elif high is not None:
                     warn, crit = high, high + 10
                 else:
-                    warn, crit = DEFAULT_LIMITS
+                    # lm-sensors numbers an ACPI chip temp1, temp2... in the zone order it read them.
+                    ladders = trips.get(chip.rsplit("-", 2)[0]) or []
+                    index = int(m.group(1)[4:]) - 1
+                    warn, crit = (ladders[index] if index < len(ladders) and ladders[index] else DEFAULT_LIMITS)
                 out.append((f"{chip} {feature}", n, warn, crit))
     return out
 
@@ -246,7 +274,7 @@ class Probes:
         except (ValueError, TypeError):
             pass
         if not values:
-            for path in Path("/sys/class/thermal").glob("thermal_zone*/temp"):
+            for path in THERMAL.glob("thermal_zone*/temp"):
                 try:
                     n = number(path.read_text().strip())
                     if n is not None and -30000 <= n <= 150000:

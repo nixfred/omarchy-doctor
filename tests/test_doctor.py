@@ -61,6 +61,33 @@ class Checks(unittest.TestCase):
         tree["nvme-pci-0500"]["Composite"]["temp1_input"] = 50
         self.assertEqual(doctor.Probes(lambda *a, **kw: probe(json.dumps(tree))).temperature()["state"], "ok")
 
+    def test_acpi_zone_uses_its_own_trip_ladder(self):
+        # HP's acpitz zone has no max/crit in lm-sensors, only trips 70/99/120. 87 is under its
+        # hot trip, so it is not a warning; the flat 85°C default used to make it one.
+        with tempfile.TemporaryDirectory() as d:
+            zone = Path(d) / "thermal_zone0"
+            zone.mkdir()
+            (zone / "type").write_text("acpitz\n")
+            for i, t in enumerate((120000, 99000, 70000)):
+                (zone / f"trip_point_{i}_temp").write_text(f"{t}\n")
+            second = Path(d) / "thermal_zone1"   # a second zone of the same kind keeps its own ladder
+            second.mkdir()
+            (second / "type").write_text("acpitz\n")
+            (second / "trip_point_0_temp").write_text("98000\n")
+            with patch.object(doctor, "THERMAL", Path(d)):
+                tree = {"acpitz-acpi-0": {"temp1": {"temp1_input": 87}, "temp2": {"temp2_input": 90}},
+                        "coretemp-isa-0000": {"P": {"temp1_input": 70, "temp1_crit": 100}}}
+                probe_row = lambda: doctor.Probes(lambda *a, **kw: probe(json.dumps(tree))).temperature()
+                self.assertEqual(probe_row()["state"], "ok")
+                details = probe_row()["details"]
+                self.assertIn("acpitz-acpi-0 temp1: 87.0°C (warns at 99, critical at 120)", details)
+                self.assertIn("acpitz-acpi-0 temp2: 90.0°C (warns at 93, critical at 98)", details)
+                tree["acpitz-acpi-0"]["temp1"]["temp1_input"] = 100
+                self.assertEqual(probe_row()["state"], "warn")
+                tree["acpitz-acpi-0"]["temp2"]["temp2_input"] = 95   # over the second zone's own ladder
+                tree["acpitz-acpi-0"]["temp1"]["temp1_input"] = 50
+                self.assertEqual(probe_row()["state"], "warn")
+
     def test_no_route_means_offline(self):
         run = lambda args, **kw: probe("[]")
         row = doctor.Probes(run).network()
