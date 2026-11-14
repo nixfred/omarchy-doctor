@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Shapes
 import qs.Commons
 import qs.Commons as Commons
 
@@ -8,6 +7,11 @@ import qs.Commons as Commons
 // at bar height. The outline style keeps one plain corner dot (red/amber)
 // when something needs you. The badge and signal styles carry the state in
 // their own color, so they show no dot. Dimmed while not checked yet.
+//
+// Plain Rectangles, not QtQuick.Shapes: the bar fits and centers a custom icon
+// by measuring its painted bounds, and the old Shape behind a scaled wrapper
+// measured 0x0 — so the icon drew at natural size from the canvas's middle
+// instead of centered, sitting low and right of every neighbour.
 Item {
     id: root
     property string state: "unknown"
@@ -27,6 +31,7 @@ Item {
     readonly property color badgeCross: root.state === "warn" ? "#191b20" : "#ffffff"
     readonly property color frameColor: root.state === "unknown" ? root.dim : root.ink
     readonly property color crossColor: root.style === "signal" ? root.stateColor : root.ink
+    readonly property color crossFill: root.style === "badge" ? root.badgeCross : root.crossColor
     readonly property real glyphBase: root.state === "unknown" ? 0.45 : 1.0
 
     Item {
@@ -36,49 +41,35 @@ Item {
         height: width
         opacity: root.glyphBase
 
-        // 100-unit SVG box scaled to fit: visual size always equals glyph.
-        Item {
-            width: 100; height: 100
-            scale: glyph.width / 100
-            transformOrigin: Item.TopLeft
-            visible: root.style !== "badge"
-            Shape {
-                width: 100; height: 100
-                antialiasing: true
-                layer.enabled: true
-                layer.samples: 4
-                ShapePath {
-                    fillColor: "transparent"
-                    strokeColor: root.frameColor
-                    strokeWidth: 6
-                    PathSvg { path: "M 32 10 H 68 A 22 22 0 0 1 90 32 V 68 A 22 22 0 0 1 68 90 H 32 A 22 22 0 0 1 10 68 V 32 A 22 22 0 0 1 32 10 Z" }
-                }
-                ShapePath {
-                    fillColor: "transparent"
-                    strokeColor: root.crossColor
-                    strokeWidth: 10
-                    capStyle: ShapePath.RoundCap
-                    PathSvg { path: "M 50 34 V 66 M 34 50 H 66" }
-                }
-            }
+        Rectangle {
+            visible: root.style === "badge"
+            anchors.fill: parent
+            radius: width * 0.22
+            color: root.badgeFill
         }
 
         Rectangle {
-            visible: root.style === "badge"
-            anchors.centerIn: parent
-            width: glyph.width; height: width
+            visible: root.style !== "badge"
+            anchors.fill: parent
             radius: width * 0.22
-            color: root.badgeFill
-            Rectangle {
-                anchors.centerIn: parent
-                width: Math.max(2, Math.round(parent.width * 0.20)); height: Math.round(parent.height * 0.52)
-                radius: width * 0.25; color: root.badgeCross
-            }
-            Rectangle {
-                anchors.centerIn: parent
-                width: Math.round(parent.width * 0.52); height: Math.max(2, Math.round(parent.height * 0.20))
-                radius: height * 0.25; color: root.badgeCross
-            }
+            color: "transparent"
+            border.width: Math.max(1, Math.round(width * 0.07))
+            border.color: root.frameColor
+        }
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: Math.max(2, Math.round(glyph.width * 0.12))
+            height: Math.round(glyph.height * 0.49)
+            radius: width / 2
+            color: root.crossFill
+        }
+        Rectangle {
+            anchors.centerIn: parent
+            width: Math.round(glyph.width * 0.49)
+            height: Math.max(2, Math.round(glyph.height * 0.12))
+            radius: height / 2
+            color: root.crossFill
         }
 
         SequentialAnimation on opacity {
